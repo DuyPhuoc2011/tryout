@@ -6,8 +6,7 @@ services:
       POSTGRES_PASSWORD: tryout
       POSTGRES_DB: tryout
     ports:
-      # Host port 5542 avoids a native Windows postgres on 5432.
-      - "5542:5432"
+      - "5432:5432"
     volumes:
       - tryout_pg:/var/lib/postgresql/data
     healthcheck:
@@ -19,8 +18,7 @@ services:
   redis:
     image: redis:7-alpine
     ports:
-      # Host port 6479 avoids a service already bound to 6379.
-      - "6479:6379"
+      - "6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
