@@ -1,0 +1,106 @@
+:root {
+  /* Palette — deep ink surface with a single confident accent. */
+  --color-bg: oklch(97% 0.012 250);
+  --color-surface: oklch(100% 0 0);
+  --color-ink: oklch(22% 0.03 265);
+  --color-muted: oklch(52% 0.02 265);
+  --color-line: oklch(90% 0.012 265);
+  --color-accent: oklch(56% 0.17 264);
+  --color-accent-strong: oklch(48% 0.18 264);
+  --color-danger: oklch(55% 0.2 25);
+
+  /* Type scale */
+  --text-sm: 0.85rem;
+  --text-base: 1rem;
+  --text-lg: 1.25rem;
+  --text-display: clamp(1.9rem, 1.4rem + 2vw, 2.6rem);
+
+  /* Rhythm */
+  --space-1: 0.5rem;
+  --space-2: 0.85rem;
+  --space-3: 1.25rem;
+  --space-4: 2rem;
+  --radius: 14px;
+  --radius-sm: 9px;
+  --ring: 0 0 0 3px oklch(56% 0.17 264 / 0.25);
+  --shadow-card: 0 1px 2px oklch(22% 0.03 265 / 0.06),
+    0 12px 30px -12px oklch(22% 0.03 265 / 0.22);
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  min-height: 100dvh;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: var(--color-ink);
+  background:
+    radial-gradient(120% 80% at 100% 0%, oklch(94% 0.04 264) 0%, transparent 55%),
+    var(--color-bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--color-accent-strong);
+  font-weight: 600;
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+}
+
+label {
+  display: block;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-muted);
+  margin-bottom: var(--space-1);
+  letter-spacing: 0.01em;
+}
+
+input {
+  width: 100%;
+  padding: 0.7rem 0.85rem;
+  font-size: var(--text-base);
+  color: var(--color-ink);
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-sm);
+  transition: border-color 150ms var(--ease), box-shadow 150ms var(--ease);
+}
+input:focus-visible {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: var(--ring);
+}
+
+button {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  font-size: var(--text-base);
+  font-weight: 650;
+  color: white;
+  background: var(--color-accent);
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 150ms var(--ease), transform 80ms var(--ease);
+}
+button:hover:not(:disabled) {
+  background: var(--color-accent-strong);
+}
+button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+button:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
