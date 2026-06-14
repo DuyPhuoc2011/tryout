@@ -7,6 +7,7 @@ const config: Config = {
   transform: { '^.+\\.ts$': 'ts-jest' },
   testEnvironment: 'node',
   testTimeout: 20000,
+  setupFiles: ['./jest-e2e.setup.ts'],
 };
 
 export default config;
