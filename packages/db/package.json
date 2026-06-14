@@ -8,6 +8,7 @@
     "build": "tsc -p tsconfig.json",
     "generate": "drizzle-kit generate",
     "migrate": "drizzle-kit migrate",
+    "seed": "tsx src/seeds/seed-scenario-01.ts",
     "test": "echo \"no tests\" && exit 0"
   },
   "dependencies": {
@@ -15,6 +16,7 @@
     "postgres": "^3.4.4"
   },
   "devDependencies": {
-    "drizzle-kit": "^0.24.2"
+    "drizzle-kit": "^0.24.2",
+    "tsx": "^4.15.0"
   }
 }
