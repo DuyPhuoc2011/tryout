@@ -4,3 +4,6 @@ dist/
 .env.local
 .omc/
 *.log
+.next/
+coverage/
+*.tsbuildinfo
