@@ -3,7 +3,8 @@
   "compilerOptions": {
     "outDir": "./dist",
     "baseUrl": "./",
-    "incremental": true
+    "incremental": true,
+    "strictPropertyInitialization": false
   },
   "include": ["src", "test"]
 }
