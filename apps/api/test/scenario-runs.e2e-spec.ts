@@ -19,6 +19,8 @@ const mockGitHubService = {
 const mockQueueService = {
   enqueuePollPr: jest.fn().mockResolvedValue(undefined),
   enqueuePollCi: jest.fn().mockResolvedValue(undefined),
+  enqueuePmIntro: jest.fn().mockResolvedValue(undefined),
+  enqueueReview: jest.fn().mockResolvedValue(undefined),
 };
 
 describe('ScenarioRuns (e2e)', () => {
