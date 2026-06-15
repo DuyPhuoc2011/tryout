@@ -1,7 +1,8 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, and } from 'drizzle-orm';
 import type { Db } from '@tryout/db';
 import { schema } from '@tryout/db';
+import type { ScenarioDefinition } from '@tryout/shared';
 import { DRIZZLE } from '../db/db.module';
 import { GitHubService } from '../github/github.service';
 import { QueueService } from '../queue/queue.service';
@@ -33,7 +34,6 @@ export class ScenarioRunsService {
       .returning();
 
     const created = await this.github.createRepoFromTemplate(userId);
-
     const [repoOwner, repoName] = created.fullName.split('/');
 
     await this.db.insert(schema.repos).values({
@@ -42,6 +42,10 @@ export class ScenarioRunsService {
       defaultBranch: 'main',
     });
 
+    // The PM writes the welcome/ticket message asynchronously.
+    await this.queue.enqueuePmIntro({ scenarioRunId: run.id });
+
+    // Start polling for the user's PR.
     await this.queue.enqueuePollPr(
       { scenarioRunId: run.id, repoOwner, repoName, attemptCount: 0 },
       env.pollPrIntervalMs,
@@ -61,6 +65,13 @@ export class ScenarioRunsService {
       throw new NotFoundException(`Scenario run ${runId} not found.`);
     }
 
+    const [scenario] = await this.db
+      .select({ definition: schema.scenarios.definition })
+      .from(schema.scenarios)
+      .where(eq(schema.scenarios.id, run.scenarioId))
+      .limit(1);
+    const def = scenario?.definition as ScenarioDefinition | undefined;
+
     const [repo] = await this.db
       .select()
       .from(schema.repos)
@@ -72,13 +83,43 @@ export class ScenarioRunsService {
       .from(schema.submissions)
       .where(eq(schema.submissions.scenarioRunId, runId))
       .orderBy(desc(schema.submissions.createdAt));
+    const latestSubmission = submissions[0] ?? null;
+
+    const [pmIntro] = await this.db
+      .select()
+      .from(schema.agentMessages)
+      .where(
+        and(
+          eq(schema.agentMessages.scenarioRunId, runId),
+          eq(schema.agentMessages.agentRole, 'pm'),
+          eq(schema.agentMessages.direction, 'agent'),
+        ),
+      )
+      .orderBy(desc(schema.agentMessages.createdAt))
+      .limit(1);
+
+    let latestReview = null;
+    if (latestSubmission) {
+      const [review] = await this.db
+        .select()
+        .from(schema.reviews)
+        .where(eq(schema.reviews.submissionId, latestSubmission.id))
+        .orderBy(desc(schema.reviews.createdAt))
+        .limit(1);
+      latestReview = review ?? null;
+    }
 
     return {
       id: run.id,
       status: run.status,
       startedAt: run.startedAt,
+      scenario: def
+        ? { title: def.title, companyContext: def.company_context, ticket: def.ticket }
+        : null,
       repo: repo ? { url: repo.url, prNumber: repo.prNumber } : null,
-      latestSubmission: submissions[0] ?? null,
+      pmIntro: pmIntro ?? null,
+      latestSubmission,
+      latestReview,
     };
   }
 }
