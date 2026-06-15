@@ -54,6 +54,15 @@ export interface AgentMessageView {
   createdAt: string;
 }
 
+export interface ScorecardView {
+  technicalScore: number;
+  technicalFeedback: string;
+  professionalScore: number;
+  professionalFeedback: string;
+  overallFeedback: string;
+  createdAt: string;
+}
+
 export const api = {
   signup: (email: string, password: string) =>
     post<AuthResponse>('/auth/signup', { email, password }),
@@ -97,5 +106,23 @@ export const api = {
     });
     if (!res.ok) throw new Error(`Failed to send message (${res.status})`);
     return res.json() as Promise<AgentMessageView>;
+  },
+
+  requestGrade: async (runId: string): Promise<{ status: string }> => {
+    const res = await fetch(`${API_URL}/scenario-runs/${runId}/grade`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    });
+    if (!res.ok) throw new Error(`Failed to request grading (${res.status})`);
+    return res.json() as Promise<{ status: string }>;
+  },
+
+  getScorecard: async (runId: string): Promise<ScorecardView | null> => {
+    const res = await fetch(`${API_URL}/scenario-runs/${runId}/scorecard`, {
+      headers: { ...authHeaders() },
+    });
+    if (res.status === 404) return null;
+    if (!res.ok) throw new Error(`Failed to load scorecard (${res.status})`);
+    return res.json() as Promise<ScorecardView>;
   },
 };
