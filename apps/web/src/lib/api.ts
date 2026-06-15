@@ -46,6 +46,14 @@ export interface ScenarioRunView {
   } | null;
 }
 
+export interface AgentMessageView {
+  id: string;
+  agentRole: 'pm' | 'senior';
+  direction: 'user' | 'agent';
+  content: string;
+  createdAt: string;
+}
+
 export const api = {
   signup: (email: string, password: string) =>
     post<AuthResponse>('/auth/signup', { email, password }),
@@ -67,5 +75,27 @@ export const api = {
     });
     if (!res.ok) throw new Error(`Failed to load run (${res.status})`);
     return res.json() as Promise<ScenarioRunView>;
+  },
+
+  getMessages: async (runId: string): Promise<AgentMessageView[]> => {
+    const res = await fetch(`${API_URL}/scenario-runs/${runId}/messages`, {
+      headers: { ...authHeaders() },
+    });
+    if (!res.ok) throw new Error(`Failed to load messages (${res.status})`);
+    return res.json() as Promise<AgentMessageView[]>;
+  },
+
+  sendMessage: async (
+    runId: string,
+    agentRole: 'pm' | 'senior',
+    content: string,
+  ): Promise<AgentMessageView> => {
+    const res = await fetch(`${API_URL}/scenario-runs/${runId}/messages`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ agentRole, content }),
+    });
+    if (!res.ok) throw new Error(`Failed to send message (${res.status})`);
+    return res.json() as Promise<AgentMessageView>;
   },
 };
