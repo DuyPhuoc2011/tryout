@@ -21,6 +21,8 @@ export interface CheckRunSummary {
   conclusion: string | null;
 }
 
+export type ReviewEvent = 'APPROVE' | 'REQUEST_CHANGES' | 'COMMENT';
+
 @Injectable()
 export class GitHubService {
   private readonly octokit: Octokit;
@@ -78,5 +80,21 @@ export class GitHubService {
       status: run.status,
       conclusion: run.conclusion ?? null,
     }));
+  }
+
+  async createPullRequestReview(
+    owner: string,
+    repo: string,
+    prNumber: number,
+    body: string,
+    event: ReviewEvent,
+  ): Promise<void> {
+    await this.octokit.rest.pulls.createReview({
+      owner,
+      repo,
+      pull_number: prNumber,
+      body,
+      event,
+    });
   }
 }

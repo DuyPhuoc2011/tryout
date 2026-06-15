@@ -18,4 +18,7 @@ export const env = {
   pollPrIntervalMs: Number(process.env.POLL_PR_INTERVAL_MS ?? 30_000),
   pollCiIntervalMs: Number(process.env.POLL_CI_INTERVAL_MS ?? 60_000),
   pollMaxAttempts: Number(process.env.POLL_MAX_ATTEMPTS ?? 120),
+  anthropicApiKey: () => required('ANTHROPIC_API_KEY'),
+  llmChatModel: process.env.LLM_CHAT_MODEL ?? 'claude-haiku-4-5',
+  llmReviewModel: process.env.LLM_REVIEW_MODEL ?? 'claude-sonnet-4-6',
 };

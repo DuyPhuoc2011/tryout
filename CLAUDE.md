@@ -63,19 +63,23 @@ NEXT_PUBLIC_API_URL=http://localhost:3001 pnpm --filter @tryout/web dev
 
 | File | Purpose |
 |------|---------|
-| `app.module.ts` | Root NestJS module — imports DbModule, AuthModule, ScenarioRunsModule |
+| `app.module.ts` | Root NestJS module — imports DbModule, AuthModule, ScenarioRunsModule, AgentsModule |
 | `config/env.ts` | All env var access — call `env.someVar` or `env.someVar()` for required vars |
 | `db/db.module.ts` | Global Drizzle provider; inject with `@Inject(DRIZZLE) private db: Db` |
 | `auth/auth.module.ts` | JWT auth — exports JwtModule + JwtAuthGuard for other modules to use |
 | `auth/jwt-auth.guard.ts` | Guard + `AuthUser` interface (`{ sub: string, email: string }`) |
 | `auth/current-user.decorator.ts` | `@CurrentUser()` param decorator — returns `AuthUser` |
-| `github/github.service.ts` | Octokit wrapper: `createRepoFromTemplate`, `listOpenPullRequests`, `getPullRequestDiff`, `getCheckRuns` |
-| `queue/queue.constants.ts` | Queue names (`poll-pr`, `poll-ci`) and job data types |
-| `queue/queue.service.ts` | `enqueuePollPr()` and `enqueuePollCi()` helpers |
+| `llm/llm.module.ts` | Provides `LLM_ROUTER` token (a configured `AnthropicLlmRouter` from `@tryout/llm`); inject with `@Inject(LLM_ROUTER)` |
+| `github/github.service.ts` | Octokit wrapper: `createRepoFromTemplate`, `listOpenPullRequests`, `getPullRequestDiff`, `getCheckRuns`, `createPullRequestReview` |
+| `agents/pm.service.ts` | `generateIntro(runId)` — single LLM call → PM welcome + ticket, persisted as an AgentMessage |
+| `agents/senior-review.service.ts` | `reviewSubmission(data)` — reviews the real diff, forces request_changes on first submission, posts to GitHub, persists a Review |
+| `agents/processors/*.processor.ts` | BullMQ workers: `pm-intro` runs PmService, `review` runs SeniorReviewService |
+| `queue/queue.constants.ts` | Queue names (`poll-pr`, `poll-ci`, `pm-intro`, `review`) and job data types |
+| `queue/queue.service.ts` | `enqueuePollPr/PollCi/PmIntro/Review()` helpers |
 | `queue/processors/poll-pr.processor.ts` | Detects PR on candidate repo → creates Submission → enqueues poll-ci |
-| `queue/processors/poll-ci.processor.ts` | Polls CI check runs → updates `Submission.ciStatus` |
+| `queue/processors/poll-ci.processor.ts` | Polls CI check runs → updates `Submission.ciStatus` → enqueues review |
 | `scenario-runs/scenario-runs.controller.ts` | `POST /scenario-runs`, `GET /scenario-runs/:id` |
-| `scenario-runs/scenario-runs.service.ts` | Orchestrates DB + GitHub + queue for scenario runs |
+| `scenario-runs/scenario-runs.service.ts` | Orchestrates DB + GitHub + queue; getRun returns ticket + PM intro + latest review |
 
 ### Database (`packages/db/src/`)
 
@@ -118,7 +122,7 @@ scorecards      — id, scenarioRunId, technicalScore, professionalScore, ...
 
 ## Environment Variables
 
-Required (throw if missing): `DATABASE_URL`, `JWT_SECRET`, `GITHUB_TOKEN`, `GITHUB_OWNER`
+Required (throw if missing): `DATABASE_URL`, `JWT_SECRET`, `GITHUB_TOKEN`, `GITHUB_OWNER`, `ANTHROPIC_API_KEY` (the last needed when agents run)
 
 Optional with defaults:
 - `PORT` — 3001
@@ -128,14 +132,19 @@ Optional with defaults:
 - `POLL_PR_INTERVAL_MS` — 30000
 - `POLL_CI_INTERVAL_MS` — 60000
 - `POLL_MAX_ATTEMPTS` — 120
+- `LLM_CHAT_MODEL` — claude-haiku-4-5
+- `LLM_REVIEW_MODEL` — claude-sonnet-4-6
 
 ## Testing
 
 ```bash
-# Unit tests (15 tests)
+# API unit tests (20 tests)
 pnpm --filter @tryout/api test
 
-# E2E tests (11 tests) — needs real Postgres + JWT_SECRET
+# LLM router unit tests (3 tests)
+pnpm --filter @tryout/llm test
+
+# E2E tests (12 tests) — needs real Postgres + JWT_SECRET
 DATABASE_URL=postgres://tryout:tryout@localhost:5432/tryout JWT_SECRET=dev \
   pnpm --filter @tryout/api test:e2e
 
@@ -146,7 +155,7 @@ cd templates/lumi-tasks-api && npm test
 pnpm --filter @tryout/api test -- github.service
 ```
 
-E2E tests mock `GitHubService` and `QueueService` — no real GitHub token needed. The `test/jest-e2e.setup.ts` file sets `GITHUB_TOKEN=fake-token-for-testing` and `GITHUB_OWNER=fake-owner-for-testing` before module compilation.
+E2E tests mock `GitHubService`, `QueueService`, and `LLM_ROUTER` — no real GitHub/Anthropic tokens needed. The `test/jest-e2e.setup.ts` file sets fake `GITHUB_TOKEN`, `GITHUB_OWNER`, and `ANTHROPIC_API_KEY` before module compilation.
 
 ## Patterns & Conventions
 
@@ -156,10 +165,15 @@ E2E tests mock `GitHubService` and `QueueService` — no real GitHub token neede
 - **Drizzle injection:** `@Inject(DRIZZLE) private readonly db: Db` — `DRIZZLE` Symbol is exported from `db/db.module.ts`.
 - **Commit style:** conventional commits — `feat:`, `fix:`, `test:`, `chore:`, `docs:`, `refactor:`
 
+## Milestones (spec order — `docs/team-sim-spec-v1.md` §11)
+
+M0 Skeleton ✅ · M1 GitHub Spine ✅ · M2 The Visible Loop ✅ · M3 Conversations 🔲 · M4 Grading 🔲 · M5 Polish 🔲. See `docs/STATUS.md` for detail.
+
 ## What NOT to Build (scope guards)
 
-- No agent chat UI yet (M2+)
-- No scenario run status transitions beyond "onboarding" (M2+)
-- No error recovery / retry logic for failed polls (M2+)
-- No grading / scorecard computation (M3+)
-- No OAuth / organization management (M4+)
+- No human↔agent chat yet — clarifying/help conversations are **M3**
+- No scenario run status transitions beyond "onboarding" (M3)
+- No grading / scorecard computation — that's **M4** (the hidden acceptance suite must never ship in the candidate template)
+- No retry/next, soft deadline, or scope-change event (M5)
+- No error recovery / retry logic for failed polls
+- No OAuth / organization management (post-MVP)

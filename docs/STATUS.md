@@ -1,10 +1,12 @@
 # Tryout — Project Status
 
-_Last updated: 2026-06-14_
+_Last updated: 2026-06-15_
 
 ## Overview
 
 AI-powered technical interview platform. Candidates receive a real GitHub repo, implement a challenge, and interact with AI agents. System grades technical quality + professional communication.
+
+> **Milestone numbering follows the spec** (`team-sim-spec-v1.md` §11), the source of truth. An earlier revision of this file mislabeled M2–M4; corrected below.
 
 ---
 
@@ -12,11 +14,12 @@ AI-powered technical interview platform. Candidates receive a real GitHub repo, 
 
 | Milestone | Name | Status |
 |-----------|------|--------|
-| M0 | Foundation | ✅ Complete |
+| M0 | Skeleton (auth, infra) | ✅ Complete |
 | M1 | GitHub Spine | ✅ Complete |
-| M2 | Agent Chat | 🔲 Pending |
-| M3 | Grading Engine | 🔲 Pending |
-| M4 | Production Hardening | 🔲 Pending |
+| M2 | The Visible Loop | ✅ Complete |
+| M3 | Conversations | 🔲 Pending |
+| M4 | Grading | 🔲 Pending |
+| M5 | Polish | 🔲 Pending |
 
 ---
 
@@ -76,74 +79,86 @@ AI-powered technical interview platform. Candidates receive a real GitHub repo, 
 
 ---
 
-## M2 — Agent Chat 🔲
+## M2 — The Visible Loop ✅
 
-**Goal:** PM Mai and Senior Alex respond to candidate messages; PR review agent comments on GitHub.
+**Goal:** Make the seeded scenario playable end to end — PM intro + ticket, real PR + CI, Senior reviews the real diff and posts a GitHub review. No chat, no grading yet. The make-or-break demo.
 
-### Planned
-- [ ] `AgentChatModule` — `POST /scenario-runs/:id/messages` (candidate → agent), `GET /scenario-runs/:id/messages`
-- [ ] PM Mai persona — responds to clarifying questions using scenario `agent_prompts.pm_mai.system`
-- [ ] Senior Alex persona — chat mode + PR review mode
-- [ ] Scenario run status transitions: `onboarding → in_progress → in_review`
-- [ ] GitHub PR review posting via Octokit (reviews, comments)
-- [ ] Web chat UI — Slack-style message thread per run
-- [ ] LLM router wired to a real provider (Anthropic claude-haiku-4-5 for speed)
+### Done
+- [x] `AnthropicLlmRouter` — real provider behind the `LlmRouter` interface, routed by task complexity (chat → Haiku, review → Sonnet)
+- [x] `LlmModule` — provides `LLM_ROUTER` from env (`ANTHROPIC_API_KEY`, `LLM_CHAT_MODEL`, `LLM_REVIEW_MODEL`)
+- [x] `PmService` — single LLM call generating the PM welcome + ticket assignment, persisted as an `AgentMessage` (role `pm`, direction `agent`)
+- [x] `SeniorReviewService` — fetches the real diff, reviews against ground-truth + red flags, **forces request_changes on the first submission**, posts the review to GitHub, persists a `Review`
+- [x] `GitHubService.createPullRequestReview` — posts a review with a verdict event
+- [x] `pm-intro` + `review` BullMQ queues; `pm-intro` enqueued at run start, `review` enqueued by `poll-ci` when CI completes
+- [x] `AgentsModule` — wires services + processors; imported into AppModule
+- [x] Widened `GET /scenario-runs/:id` — returns the ticket, PM intro, and latest review
+- [x] Web `/run` page — one screen showing ticket, PM message, repo link, CI/submission status, Senior review; polls for updates
+- [x] `ScenarioDefinition` shared types in `@tryout/shared`
 
-### Dependencies
-- M1 complete ✅
-- Real GitHub PAT + template repo on GitHub (human prerequisite)
-- LLM API key (`ANTHROPIC_API_KEY`)
+### Test Coverage (M2, cumulative)
+- Unit: 23 (`@tryout/llm` AnthropicLlmRouter 3; API: PasswordService 3, GitHubService 5, PollPrProcessor 3, PollCiProcessor 5, PmService 1, SeniorReviewService 3)
+- E2E: 12 (auth 7, scenario-runs 4, visible-loop 1)
+- Template: 4 (tasks e2e)
 
----
-
-## M3 — Grading Engine 🔲
-
-**Goal:** After Senior Alex approves, run the hidden acceptance suite and compute a scorecard.
-
-### Planned
-- [ ] `GradingModule` — triggered when `ScenarioRun.status` transitions to `grading`
-- [ ] Hidden acceptance test runner — clones candidate branch, runs `test/archive.acceptance.spec.ts`
-- [ ] Technical scoring against rubric criteria
-- [ ] Professional scoring from conversation analysis
-- [ ] `POST /scenario-runs/:id/scorecard` — returns full scorecard
-- [ ] Web results page — scorecard display with per-criterion breakdown
-
-### Dependencies
-- M2 complete
-- Hidden acceptance suite (`test/archive.acceptance.spec.ts`) — not included in candidate template
+### Manual Prerequisites (in addition to M1's)
+- [ ] Anthropic API key in `.env` as `ANTHROPIC_API_KEY`
 
 ---
 
-## M4 — Production Hardening 🔲
+## M3 — Conversations 🔲
 
-**Goal:** Multi-tenant, observability, CI/CD, rate limiting.
+**Goal:** Two-way chat with the PM (clarify the ambiguous ticket) and the Senior (ask for help without getting the answer), persisted as `AgentMessage`s.
 
 ### Planned
-- [ ] Organization model — multi-tenant with org-scoped scenarios and candidates
-- [ ] Cohort management — group candidates, track aggregate performance
-- [ ] Rate limiting on all public endpoints
-- [ ] Error recovery for polling failures (dead-letter queue)
-- [ ] Structured logging (pino)
-- [ ] Cloud Run deploy pipeline (Dockerfiles already exist)
-- [ ] Scenario authoring UI — create/edit tracks and scenarios
+- [ ] `POST /scenario-runs/:id/messages` (candidate → agent) + `GET /scenario-runs/:id/messages`
+- [ ] PM chat handler — answers clarifying questions using the scenario's canonical answers; rewards good questions
+- [ ] Senior chat handler — nudges, points at files, never pastes the solution
+- [ ] Scenario run status transitions: `onboarding → in_progress`
+- [ ] Web chat UI — Slack-style message thread per agent
+
+### Dependencies
+- M2 complete ✅
+- `ANTHROPIC_API_KEY`
+
+---
+
+## M4 — Grading 🔲
+
+**Goal:** Run the Grader once at the end and render a scorecard (technical + professional).
+
+### Planned
+- [ ] `GradingModule` — async job over the full transcript + diff + CI + review thread + ground truth
+- [ ] Hidden acceptance test runner — runs `test/archive.acceptance.spec.ts` on the final branch
+- [ ] Technical + professional scoring against the per-scenario rubric
+- [ ] `Scorecard` persisted; results endpoint + web results page
+
+### Dependencies
+- M3 complete
+- Hidden acceptance suite (`test/archive.acceptance.spec.ts`) — never shipped in the candidate template
+
+---
+
+## M5 — Polish 🔲
+
+**Goal:** Tighten UX, add retry/next, soft deadline, the optional scope-change event.
 
 ---
 
 ## Current Architecture
 
 ```
-┌─────────────┐    ┌──────────────────────────────────────────────┐
-│  Next.js 14 │    │               NestJS 10 API                  │
-│  (port 3000)│───▶│  AuthModule   ScenarioRunsModule             │
-│  App Router │    │  ↓            ↓                              │
-│             │    │  /auth/*      /scenario-runs                  │
-│  Login      │    │               ↓                              │
-│  Signup     │    │          GitHubModule  QueueModule            │
-└─────────────┘    │          (Octokit)     (BullMQ)              │
-                   │               ↓             ↓                │
-                   │          GitHub API    poll-pr processor      │
-                   │                        poll-ci processor      │
-                   └─────┬──────────────────────────────────────┘
+┌─────────────┐    ┌──────────────────────────────────────────────────┐
+│  Next.js 14 │    │                  NestJS 10 API                    │
+│  (port 3000)│───▶│  AuthModule   ScenarioRunsModule   AgentsModule   │
+│  App Router │    │  ↓            ↓                     ↓              │
+│  Login      │    │  /auth/*      /scenario-runs        PmService      │
+│  Signup     │    │               ↓                     SeniorReview    │
+│  /run       │    │     GitHubModule  QueueModule  LlmModule           │
+└─────────────┘    │     (Octokit)     (BullMQ)     (Anthropic)         │
+                   │          ↓            ↓              ↓             │
+                   │     GitHub API   poll-pr / poll-ci   Claude        │
+                   │                  pm-intro / review                 │
+                   └─────┬──────────────────────────────────────────────┘
                          │
               ┌──────────┴──────────┐
               │  PostgreSQL 16      │  Redis 7
@@ -155,10 +170,10 @@ AI-powered technical interview platform. Candidates receive a real GitHub repo, 
 
 | Metric | Value |
 |--------|-------|
-| Total commits | 24 |
-| Unit tests | 15 |
-| E2E tests | 11 |
+| Unit tests | 23 (llm 3 + api 20) |
+| E2E tests | 12 |
 | Template tests | 4 |
 | DB tables | 9 |
 | API endpoints | 5 (health, signup, login, me, scenario-runs ×2) |
 | Packages | 5 (api, web, db, shared, llm) |
+| BullMQ queues | 4 (poll-pr, poll-ci, pm-intro, review) |

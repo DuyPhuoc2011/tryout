@@ -56,5 +56,12 @@ export class PollCiProcessor extends WorkerHost {
         ciResults: checkRuns as unknown as Record<string, unknown>[],
       })
       .where(eq(schema.submissions.id, submissionId));
+
+    await this.queue.enqueueReview({
+      submissionId,
+      repoOwner,
+      repoName,
+      prNumber,
+    });
   }
 }

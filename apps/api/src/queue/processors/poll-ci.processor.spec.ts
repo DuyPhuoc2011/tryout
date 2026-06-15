@@ -16,6 +16,7 @@ const mockGitHubService = {
 
 const mockQueueService = {
   enqueuePollCi: jest.fn(),
+  enqueueReview: jest.fn(),
 };
 
 const baseJobData = {
@@ -78,6 +79,12 @@ describe('PollCiProcessor', () => {
       expect.objectContaining({ ciStatus: 'success' }),
     );
     expect(mockQueueService.enqueuePollCi).not.toHaveBeenCalled();
+    expect(mockQueueService.enqueueReview).toHaveBeenCalledWith({
+      submissionId: 'sub-1',
+      repoOwner: 'test-owner',
+      repoName: 'lumi-tasks-abc',
+      prNumber: 7,
+    });
   });
 
   it('records failure conclusion correctly', async () => {
