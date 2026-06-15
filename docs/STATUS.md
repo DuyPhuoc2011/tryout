@@ -152,18 +152,20 @@ AI-powered technical interview platform. Candidates receive a real GitHub repo, 
 ## Current Architecture
 
 ```
-┌─────────────┐    ┌──────────────────────────────────────────────────┐
-│  Next.js 14 │    │                  NestJS 10 API                    │
-│  (port 3000)│───▶│  AuthModule   ScenarioRunsModule   AgentsModule   │
-│  App Router │    │  ↓            ↓                     ↓              │
-│  Login      │    │  /auth/*      /scenario-runs        PmService      │
-│  Signup     │    │               ↓                     SeniorReview    │
-│  /run       │    │     GitHubModule  QueueModule  LlmModule           │
-└─────────────┘    │     (Octokit)     (BullMQ)     (Anthropic)         │
-                   │          ↓            ↓              ↓             │
-                   │     GitHub API   poll-pr / poll-ci   Claude        │
-                   │                  pm-intro / review                 │
-                   └─────┬──────────────────────────────────────────────┘
+┌─────────────┐    ┌──────────────────────────────────────────────────────┐
+│  Next.js 14 │    │                  NestJS 10 API                        │
+│  (port 3000)│───▶│  AuthModule  ScenarioRunsModule  AgentsModule         │
+│  App Router │    │  ↓           ↓                    GradingModule        │
+│  Login      │    │  /auth/*     /scenario-runs       ↓                    │
+│  Signup     │    │              ↓                    PmService            │
+│  /run       │    │              /grade /scorecard    SeniorReview         │
+│  (scorecard)│    │                                   GradingService       │
+└─────────────┘    │     GitHubModule  QueueModule  LlmModule               │
+                   │     (Octokit)     (BullMQ)     (Anthropic)             │
+                   │          ↓            ↓              ↓                 │
+                   │     GitHub API   poll-pr / poll-ci   Claude            │
+                   │                  pm-intro / review / grade             │
+                   └─────┬──────────────────────────────────────────────────┘
                          │
               ┌──────────┴──────────┐
               │  PostgreSQL 16      │  Redis 7

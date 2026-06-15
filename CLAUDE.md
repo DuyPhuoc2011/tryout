@@ -167,7 +167,7 @@ E2E tests mock `GitHubService`, `QueueService`, and `LLM_ROUTER` — no real Git
 
 ## Milestones (spec order — `docs/team-sim-spec-v1.md` §11)
 
-M0 Skeleton ✅ · M1 GitHub Spine ✅ · M2 The Visible Loop ✅ · M3 Conversations 🔲 · M4 Grading 🔲 · M5 Polish 🔲. See `docs/STATUS.md` for detail.
+M0 Skeleton ✅ · M1 GitHub Spine ✅ · M2 The Visible Loop ✅ · M3 Conversations ✅ · M4 Grading ✅ · M5 Polish 🔲. See `docs/STATUS.md` for detail.
 
 ## What NOT to Build (scope guards)
 
