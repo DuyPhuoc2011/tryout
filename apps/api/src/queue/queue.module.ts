@@ -21,6 +21,7 @@ function parseRedisUrl(url: string): { host: string; port: number } {
     BullModule.registerQueue({ name: QUEUE_NAMES.POLL_CI }),
     BullModule.registerQueue({ name: QUEUE_NAMES.PM_INTRO }),
     BullModule.registerQueue({ name: QUEUE_NAMES.REVIEW }),
+    BullModule.registerQueue({ name: QUEUE_NAMES.GRADE }),
   ],
   providers: [QueueService],
   exports: [QueueService, BullModule],
