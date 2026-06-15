@@ -9,6 +9,7 @@ const mockOctokit = {
     pulls: {
       list: jest.fn(),
       get: jest.fn(),
+      createReview: jest.fn(),
     },
     checks: {
       listForRef: jest.fn(),
@@ -112,6 +113,28 @@ describe('GitHubService', () => {
       });
       expect(result[0].status).toBe('completed');
       expect(result[0].conclusion).toBe('success');
+    });
+  });
+
+  describe('createPullRequestReview', () => {
+    it('posts a review with the given body and event', async () => {
+      mockOctokit.rest.pulls.createReview.mockResolvedValue({ data: { id: 99 } });
+
+      await service.createPullRequestReview(
+        'test-owner',
+        'my-repo',
+        7,
+        'Looks close. A few things to fix.',
+        'REQUEST_CHANGES',
+      );
+
+      expect(mockOctokit.rest.pulls.createReview).toHaveBeenCalledWith({
+        owner: 'test-owner',
+        repo: 'my-repo',
+        pull_number: 7,
+        body: 'Looks close. A few things to fix.',
+        event: 'REQUEST_CHANGES',
+      });
     });
   });
 });
