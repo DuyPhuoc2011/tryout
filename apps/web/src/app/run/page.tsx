@@ -1,13 +1,15 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { api, type ScenarioRunView } from '@/lib/api';
+import { api, type ScenarioRunView, type AgentMessageView } from '@/lib/api';
 import { RunView } from '@/components/RunView';
+import { ChatPanel } from '@/components/ChatPanel';
 
 const RUN_ID_KEY = 'tryout_run_id';
 
 export default function RunPage() {
   const [run, setRun] = useState<ScenarioRunView | null>(null);
+  const [messages, setMessages] = useState<AgentMessageView[]>([]);
   const [runId, setRunId] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -19,8 +21,9 @@ export default function RunPage() {
 
   const refresh = useCallback(async (id: string) => {
     try {
-      const data = await api.getRun(id);
+      const [data, msgs] = await Promise.all([api.getRun(id), api.getMessages(id)]);
       setRun(data);
+      setMessages(msgs);
     } catch {
       setError('Could not load your run.');
     }
@@ -74,5 +77,25 @@ export default function RunPage() {
     );
   }
 
-  return <RunView run={run} />;
+  return (
+    <div style={{ maxWidth: 980, margin: '0 auto', padding: 'var(--space-5)', display: 'grid', gap: 'var(--space-4)' }}>
+      <RunView run={run} />
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 'var(--space-4)' }}>
+        <ChatPanel
+          runId={run.id}
+          agentRole="pm"
+          title="Mai (PM)"
+          messages={messages}
+          onSent={() => refresh(run.id)}
+        />
+        <ChatPanel
+          runId={run.id}
+          agentRole="senior"
+          title="Alex (Senior)"
+          messages={messages}
+          onSent={() => refresh(run.id)}
+        />
+      </div>
+    </div>
+  );
 }

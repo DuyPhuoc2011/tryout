@@ -17,7 +17,7 @@ AI-powered technical interview platform. Candidates receive a real GitHub repo, 
 | M0 | Skeleton (auth, infra) | ✅ Complete |
 | M1 | GitHub Spine | ✅ Complete |
 | M2 | The Visible Loop | ✅ Complete |
-| M3 | Conversations | 🔲 Pending |
+| M3 | Conversations | ✅ Complete |
 | M4 | Grading | 🔲 Pending |
 | M5 | Polish | 🔲 Pending |
 
@@ -105,20 +105,24 @@ AI-powered technical interview platform. Candidates receive a real GitHub repo, 
 
 ---
 
-## M3 — Conversations 🔲
+## M3 — Conversations ✅
 
 **Goal:** Two-way chat with the PM (clarify the ambiguous ticket) and the Senior (ask for help without getting the answer), persisted as `AgentMessage`s.
 
-### Planned
-- [ ] `POST /scenario-runs/:id/messages` (candidate → agent) + `GET /scenario-runs/:id/messages`
-- [ ] PM chat handler — answers clarifying questions using the scenario's canonical answers; rewards good questions
-- [ ] Senior chat handler — nudges, points at files, never pastes the solution
-- [ ] Scenario run status transitions: `onboarding → in_progress`
-- [ ] Web chat UI — Slack-style message thread per agent
+### Done
+- [x] `AgentChatService` — one synchronous LLM call per turn for both personas; persists the user turn and the agent reply, replays prior turns for that agent
+- [x] `POST /scenario-runs/:id/messages` + `GET /scenario-runs/:id/messages` — JWT-guarded, ownership-checked, `SendMessageDto` validation
+- [x] PM uses the persona prompt with canonical clarifications; Senior uses CHAT mode and never reveals the solution
+- [x] First message transitions the run `onboarding → in_progress`
+- [x] Web `/run` page — PM + Senior chat panels, re-fetching the transcript after each send
 
-### Dependencies
-- M2 complete ✅
-- `ANTHROPIC_API_KEY`
+### Test Coverage (M3, cumulative)
+- Unit: 27 (`@tryout/llm` 3; API: PasswordService 3, GitHubService 5, PollPrProcessor 3, PollCiProcessor 5, PmService 1, SeniorReviewService 3, AgentChatService 4)
+- E2E: 17 (auth 7, scenario-runs 4, visible-loop 1, conversations 5)
+- Template: 4 (tasks e2e)
+
+### Manual Prerequisites
+- [ ] `ANTHROPIC_API_KEY` in `.env` (shared with M2)
 
 ---
 
@@ -170,10 +174,10 @@ AI-powered technical interview platform. Candidates receive a real GitHub repo, 
 
 | Metric | Value |
 |--------|-------|
-| Unit tests | 23 (llm 3 + api 20) |
-| E2E tests | 12 |
+| Unit tests | 27 (llm 3 + api 24) |
+| E2E tests | 17 |
 | Template tests | 4 |
 | DB tables | 9 |
-| API endpoints | 5 (health, signup, login, me, scenario-runs ×2) |
+| API endpoints | 7 (health, signup, login, me, scenario-runs ×2, messages ×2) |
 | Packages | 5 (api, web, db, shared, llm) |
 | BullMQ queues | 4 (poll-pr, poll-ci, pm-intro, review) |
