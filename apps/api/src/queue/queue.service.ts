@@ -6,6 +6,7 @@ import {
   PollPrJobData,
   PollCiJobData,
   PmIntroJobData,
+  GradeJobData,
 } from './queue.constants';
 import type { ReviewJobData } from '../agents/senior-review.service';
 
@@ -16,6 +17,7 @@ export class QueueService {
     @InjectQueue(QUEUE_NAMES.POLL_CI) private readonly pollCiQueue: Queue,
     @InjectQueue(QUEUE_NAMES.PM_INTRO) private readonly pmIntroQueue: Queue,
     @InjectQueue(QUEUE_NAMES.REVIEW) private readonly reviewQueue: Queue,
+    @InjectQueue(QUEUE_NAMES.GRADE) private readonly gradeQueue: Queue,
   ) {}
 
   async enqueuePollPr(data: PollPrJobData, delayMs: number): Promise<void> {
@@ -46,6 +48,14 @@ export class QueueService {
 
   async enqueueReview(data: ReviewJobData): Promise<void> {
     await this.reviewQueue.add('review', data, {
+      attempts: 2,
+      removeOnComplete: true,
+      removeOnFail: true,
+    });
+  }
+
+  async enqueueGrade(data: GradeJobData): Promise<void> {
+    await this.gradeQueue.add('grade', data, {
       attempts: 2,
       removeOnComplete: true,
       removeOnFail: true,

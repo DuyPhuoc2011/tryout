@@ -3,6 +3,7 @@ export const QUEUE_NAMES = {
   POLL_CI: 'poll-ci',
   PM_INTRO: 'pm-intro',
   REVIEW: 'review',
+  GRADE: 'grade',
 } as const;
 
 export type QueueName = (typeof QUEUE_NAMES)[keyof typeof QUEUE_NAMES];
@@ -24,5 +25,9 @@ export interface PollCiJobData {
 }
 
 export interface PmIntroJobData {
+  scenarioRunId: string;
+}
+
+export interface GradeJobData {
   scenarioRunId: string;
 }

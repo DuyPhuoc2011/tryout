@@ -18,7 +18,7 @@ AI-powered technical interview platform. Candidates receive a real GitHub repo, 
 | M1 | GitHub Spine | ✅ Complete |
 | M2 | The Visible Loop | ✅ Complete |
 | M3 | Conversations | ✅ Complete |
-| M4 | Grading | 🔲 Pending |
+| M4 | Grading | ✅ Complete |
 | M5 | Polish | 🔲 Pending |
 
 ---
@@ -126,19 +126,20 @@ AI-powered technical interview platform. Candidates receive a real GitHub repo, 
 
 ---
 
-## M4 — Grading 🔲
+## M4 — Grading ✅
 
 **Goal:** Run the Grader once at the end and render a scorecard (technical + professional).
 
-### Planned
-- [ ] `GradingModule` — async job over the full transcript + diff + CI + review thread + ground truth
-- [ ] Hidden acceptance test runner — runs `test/archive.acceptance.spec.ts` on the final branch
-- [ ] Technical + professional scoring against the per-scenario rubric
-- [ ] `Scorecard` persisted; results endpoint + web results page
+### Done
+- [x] `GradingService` — single Grader LLM call over transcript + PR diff + CI status + review thread + ground truth + rubric; persists a `Scorecard`
+- [x] `POST /scenario-runs/:id/grade` (async job; refuses with no submission) + `GET /scenario-runs/:id/scorecard`
+- [x] `grade` BullMQ queue + `GradeProcessor`; run status `grading → complete`
+- [x] Scores clamped 0–100; LLM-judged technical correctness from the diff + CI (no sandbox — hidden-suite execution is a deliberate later follow-up)
+- [x] Web `/run` page: "Submit for grading" action + scorecard render
+- [x] Test coverage: API unit 29 (adds GradingService 5), e2e 21 (adds grading 4)
 
 ### Dependencies
 - M3 complete
-- Hidden acceptance suite (`test/archive.acceptance.spec.ts`) — never shipped in the candidate template
 
 ---
 
@@ -174,10 +175,10 @@ AI-powered technical interview platform. Candidates receive a real GitHub repo, 
 
 | Metric | Value |
 |--------|-------|
-| Unit tests | 27 (llm 3 + api 24) |
-| E2E tests | 17 |
+| Unit tests | 32 (llm 3 + api 29) |
+| E2E tests | 21 |
 | Template tests | 4 |
 | DB tables | 9 |
-| API endpoints | 7 (health, signup, login, me, scenario-runs ×2, messages ×2) |
+| API endpoints | 9 (health, signup, login, me, scenario-runs ×2, messages ×2, grade, scorecard) |
 | Packages | 5 (api, web, db, shared, llm) |
-| BullMQ queues | 4 (poll-pr, poll-ci, pm-intro, review) |
+| BullMQ queues | 5 (poll-pr, poll-ci, pm-intro, review, grade) |

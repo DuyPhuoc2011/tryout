@@ -1,15 +1,18 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { api, type ScenarioRunView, type AgentMessageView } from '@/lib/api';
+import { api, type ScenarioRunView, type AgentMessageView, type ScorecardView as Scorecard } from '@/lib/api';
 import { RunView } from '@/components/RunView';
 import { ChatPanel } from '@/components/ChatPanel';
+import { ScorecardView } from '@/components/ScorecardView';
 
 const RUN_ID_KEY = 'tryout_run_id';
 
 export default function RunPage() {
   const [run, setRun] = useState<ScenarioRunView | null>(null);
   const [messages, setMessages] = useState<AgentMessageView[]>([]);
+  const [scorecard, setScorecard] = useState<Scorecard | null>(null);
+  const [grading, setGrading] = useState(false);
   const [runId, setRunId] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -21,9 +24,14 @@ export default function RunPage() {
 
   const refresh = useCallback(async (id: string) => {
     try {
-      const [data, msgs] = await Promise.all([api.getRun(id), api.getMessages(id)]);
+      const [data, msgs, card] = await Promise.all([
+        api.getRun(id),
+        api.getMessages(id),
+        api.getScorecard(id),
+      ]);
       setRun(data);
       setMessages(msgs);
+      setScorecard(card);
     } catch {
       setError('Could not load your run.');
     }
@@ -77,9 +85,34 @@ export default function RunPage() {
     );
   }
 
+  async function onGrade() {
+    if (!run) return;
+    setGrading(true);
+    setError(null);
+    try {
+      await api.requestGrade(run.id);
+      await refresh(run.id);
+    } catch {
+      setError('Could not submit for grading. Open a PR first.');
+    } finally {
+      setGrading(false);
+    }
+  }
+
   return (
     <div style={{ maxWidth: 980, margin: '0 auto', padding: 'var(--space-5)', display: 'grid', gap: 'var(--space-4)' }}>
       <RunView run={run} />
+
+      {scorecard ? (
+        <ScorecardView scorecard={scorecard} />
+      ) : run.status === 'grading' ? (
+        <p style={{ color: 'var(--color-muted)', margin: 0 }}>Grading in progress… (refreshes automatically)</p>
+      ) : run.latestSubmission ? (
+        <button type="button" onClick={onGrade} disabled={grading}>
+          {grading ? 'Submitting…' : 'Submit for grading'}
+        </button>
+      ) : null}
+
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 'var(--space-4)' }}>
         <ChatPanel
           runId={run.id}
