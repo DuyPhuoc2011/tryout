@@ -20,9 +20,25 @@ export interface ScenarioGroundTruth {
   red_flags: string[];
 }
 
+export interface ScenarioRubricCriterion {
+  id: string;
+  weight: number;
+  description: string;
+}
+
+export interface ScenarioRubricDimension {
+  weight: number;
+  criteria: ScenarioRubricCriterion[];
+}
+
+export interface ScenarioRubric {
+  technical: ScenarioRubricDimension;
+  professional: ScenarioRubricDimension;
+}
+
 /**
- * The subset of the scenario `definition` JSONB that M2 reads.
- * The full authored definition has more fields (clarifications, rubric, etc.);
+ * The subset of the scenario `definition` JSONB that the app reads.
+ * The full authored definition has more fields (clarifications, etc.);
  * those are typed as `unknown` here until a later milestone needs them.
  */
 export interface ScenarioDefinition {
@@ -34,4 +50,5 @@ export interface ScenarioDefinition {
     senior_alex: ScenarioAgentPrompt;
   };
   ground_truth: ScenarioGroundTruth;
+  rubric: ScenarioRubric;
 }
