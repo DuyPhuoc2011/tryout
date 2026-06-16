@@ -3,6 +3,8 @@ dist/
 .env
 .env.local
 .omc/
+.agents/
+skills-lock.json
 *.log
 .next/
 coverage/
