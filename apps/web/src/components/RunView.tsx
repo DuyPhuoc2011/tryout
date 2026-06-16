@@ -1,91 +1,124 @@
 import type { ScenarioRunView } from '@/lib/api';
+import styles from '@/app/run/run.module.css';
 
 interface RunViewProps {
   run: ScenarioRunView;
 }
 
-const cardStyle: React.CSSProperties = {
-  background: 'var(--color-surface)',
-  border: '1px solid var(--color-border)',
-  borderRadius: 'var(--radius-md, 12px)',
-  padding: 'var(--space-4)',
-  boxShadow: 'var(--shadow-card, 0 1px 3px rgba(0,0,0,0.08))',
+const STATUS_COPY: Record<string, string> = {
+  onboarding: 'Getting set up',
+  in_progress: 'In progress',
+  in_review: 'In review',
+  grading: 'Grading',
+  complete: 'Complete',
 };
 
 function CiBadge({ status }: { status: string | null }) {
   const label = status ?? 'pending';
-  const color =
-    status === 'success'
-      ? 'var(--color-success, #16794d)'
-      : status === 'failure'
-        ? 'var(--color-danger, #b42318)'
-        : 'var(--color-muted)';
-  return <span style={{ color, fontWeight: 600 }}>CI: {label}</span>;
+  const cls =
+    status === 'success' ? styles.ciSuccess : status === 'failure' ? styles.ciFailure : '';
+  return <span className={`${styles.ciBadge} ${cls}`}>CI: {label}</span>;
 }
 
 export function RunView({ run }: RunViewProps) {
+  const isComplete = run.status === 'complete';
+  const yourSeat = run.team.find((s) => s.isYou);
+
   return (
-    <main style={{ maxWidth: 760, margin: '0 auto', padding: 'var(--space-5)', display: 'grid', gap: 'var(--space-4)' }}>
-      <header>
-        <p style={{ color: 'var(--color-muted)', margin: 0 }}>
-          {run.scenario?.companyContext.name} · {run.scenario?.companyContext.user_role}
-        </p>
-        <h1 style={{ fontSize: 'var(--text-xl, 1.75rem)', margin: 'var(--space-1) 0' }}>
-          {run.scenario?.title ?? 'Your scenario'}
-        </h1>
-        <p style={{ color: 'var(--color-muted)', margin: 0 }}>Status: {run.status}</p>
-      </header>
+    <>
+      <div className={styles.runHeader}>
+        <div>
+          <p className={styles.company}>
+            {run.scenario?.companyContext.name}
+            {yourSeat ? ` · ${yourSeat.title}` : ''}
+          </p>
+          <h1 className={styles.title}>{run.scenario?.title ?? 'Your scenario'}</h1>
+        </div>
+        <span
+          className={`${styles.statusPill} ${isComplete ? styles.statusDone : styles.statusActive}`}
+        >
+          <span className={styles.statusDot} />
+          {STATUS_COPY[run.status] ?? run.status}
+        </span>
+      </div>
 
       {run.scenario && (
-        <section style={cardStyle} aria-labelledby="ticket-heading">
-          <h2 id="ticket-heading" style={{ marginTop: 0, fontSize: 'var(--text-md, 1.25rem)' }}>
-            {run.scenario.ticket.id}: {run.scenario.ticket.title}
+        <section className={styles.card} aria-labelledby="ticket-heading">
+          <p className={styles.ticketId}>{run.scenario.ticket.id}</p>
+          <h2 id="ticket-heading" className={styles.cardTitle}>
+            {run.scenario.ticket.title}
           </h2>
-          <p style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{run.scenario.ticket.body}</p>
+          <p className={styles.prose}>{run.scenario.ticket.body}</p>
         </section>
       )}
 
-      <section style={cardStyle} aria-labelledby="pm-heading">
-        <h2 id="pm-heading" style={{ marginTop: 0, fontSize: 'var(--text-md, 1.25rem)' }}>Message from your PM</h2>
+      <section className={styles.card} aria-labelledby="pm-heading">
+        <p id="pm-heading" className={styles.cardLabel}>
+          Message from your PM
+        </p>
         {run.pmIntro ? (
-          <p style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{run.pmIntro.content}</p>
+          <p className={styles.prose}>{run.pmIntro.content}</p>
         ) : (
-          <p style={{ color: 'var(--color-muted)', margin: 0 }}>Your PM is writing… (refreshes automatically)</p>
+          <p className={`${styles.prose} ${styles.muted}`}>
+            Your PM is writing… (refreshes automatically)
+          </p>
         )}
       </section>
 
-      <section style={cardStyle} aria-labelledby="repo-heading">
-        <h2 id="repo-heading" style={{ marginTop: 0, fontSize: 'var(--text-md, 1.25rem)' }}>Your repository</h2>
+      <section className={styles.card} aria-labelledby="repo-heading">
+        <p id="repo-heading" className={styles.cardLabel}>
+          Your repository
+        </p>
         {run.repo ? (
-          <p style={{ margin: 0 }}>
-            <a href={run.repo.url} target="_blank" rel="noreferrer">Open your repo on GitHub →</a>
+          <p className={styles.prose}>
+            <a className={styles.link} href={run.repo.url} target="_blank" rel="noreferrer">
+              Open your repo on GitHub →
+            </a>
           </p>
         ) : (
-          <p style={{ color: 'var(--color-muted)', margin: 0 }}>Provisioning your repo…</p>
+          <p className={`${styles.prose} ${styles.muted}`}>Provisioning your repo…</p>
         )}
-        <p style={{ marginTop: 'var(--space-2)', color: 'var(--color-muted)' }}>
-          Clone it, implement the ticket, and open a pull request. We&apos;ll detect it automatically.
+        <p className={styles.hint}>
+          Clone it, implement the ticket, and open a pull request. We&apos;ll detect it
+          automatically.
         </p>
       </section>
 
-      <section style={cardStyle} aria-labelledby="review-heading">
-        <h2 id="review-heading" style={{ marginTop: 0, fontSize: 'var(--text-md, 1.25rem)' }}>Pull request &amp; review</h2>
+      <section className={styles.card} aria-labelledby="review-heading">
+        <p id="review-heading" className={styles.cardLabel}>
+          Pull request &amp; review
+        </p>
         {run.latestSubmission ? (
           <>
-            <p style={{ margin: '0 0 var(--space-2)' }}>
-              <a href={run.latestSubmission.prUrl} target="_blank" rel="noreferrer">View your PR →</a>{' '}
-              · <CiBadge status={run.latestSubmission.ciStatus} />
-            </p>
+            <div className={styles.prRow}>
+              <a
+                className={styles.link}
+                href={run.latestSubmission.prUrl}
+                target="_blank"
+                rel="noreferrer"
+              >
+                View your PR →
+              </a>
+              <span className={styles.sep}>·</span>
+              <CiBadge status={run.latestSubmission.ciStatus} />
+            </div>
             {run.latestReview ? (
-              <div>
-                <p style={{ fontWeight: 600, margin: '0 0 var(--space-1)' }}>
-                  Senior review:{' '}
-                  {run.latestReview.verdict === 'approve' ? 'Approved ✅' : 'Changes requested 🔁'}
+              <div className={styles.reviewBox}>
+                <p
+                  className={`${styles.verdict} ${
+                    run.latestReview.verdict === 'approve'
+                      ? styles.verdictApprove
+                      : styles.verdictChanges
+                  }`}
+                >
+                  {run.latestReview.verdict === 'approve'
+                    ? 'Senior approved'
+                    : 'Senior requested changes'}
                 </p>
                 {run.latestReview.comments && (
                   <>
-                    <p style={{ margin: '0 0 var(--space-1)' }}>{run.latestReview.comments.summary}</p>
-                    <ul style={{ margin: 0, paddingLeft: '1.2em' }}>
+                    <p className={styles.reviewSummary}>{run.latestReview.comments.summary}</p>
+                    <ul className={styles.reviewList}>
                       {run.latestReview.comments.comments.map((c, i) => (
                         <li key={i}>{c}</li>
                       ))}
@@ -94,13 +127,15 @@ export function RunView({ run }: RunViewProps) {
                 )}
               </div>
             ) : (
-              <p style={{ color: 'var(--color-muted)', margin: 0 }}>Senior is reviewing once CI finishes…</p>
+              <p className={`${styles.prose} ${styles.muted}`}>
+                Senior is reviewing once CI finishes…
+              </p>
             )}
           </>
         ) : (
-          <p style={{ color: 'var(--color-muted)', margin: 0 }}>No pull request opened yet.</p>
+          <p className={`${styles.prose} ${styles.muted}`}>No pull request opened yet.</p>
         )}
       </section>
-    </main>
+    </>
   );
 }

@@ -44,7 +44,7 @@ export function ProjectCatalog({ scenarios, onPick }: ProjectCatalogProps) {
                 aria-disabled={!s.available}
               >
                 <div className={styles.projectCardHead}>
-                  <span className={styles.projectCompany}>{s.companyName || '—'}</span>
+                  <span className={styles.projectCompany}>{s.companyName || 'Untitled'}</span>
                   {s.available ? (
                     <span className={styles.difficulty}>
                       {DIFFICULTY_LABEL[s.difficulty] ?? s.difficulty}

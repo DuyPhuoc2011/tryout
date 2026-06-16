@@ -1,41 +1,57 @@
 import type { ScorecardView as Scorecard } from '@/lib/api';
+import styles from '@/app/run/run.module.css';
 
 interface ScorecardViewProps {
   scorecard: Scorecard;
 }
 
-const cardStyle: React.CSSProperties = {
-  background: 'var(--color-surface)',
-  border: '1px solid var(--color-border)',
-  borderRadius: 'var(--radius-md, 12px)',
-  padding: 'var(--space-4)',
-  display: 'grid',
-  gap: 'var(--space-3)',
-};
+function scoreClass(score: number): string {
+  return score >= 80 ? styles.scoreHigh : score >= 50 ? styles.scoreMid : styles.scoreLow;
+}
 
 function Dimension({ label, score, feedback }: { label: string; score: number; feedback: string }) {
-  const color =
-    score >= 80 ? 'var(--color-success, #16794d)' : score >= 50 ? '#b8860b' : 'var(--color-danger, #b42318)';
+  const cls = scoreClass(score);
   return (
-    <div>
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
-        <h3 style={{ margin: 0, fontSize: 'var(--text-base, 1rem)' }}>{label}</h3>
-        <span style={{ fontWeight: 700, fontSize: 'var(--text-lg, 1.5rem)', color }}>{score}<span style={{ color: 'var(--color-muted)', fontSize: 'var(--text-sm, 0.875rem)' }}>/100</span></span>
+    <div className={styles.dimension}>
+      <div className={styles.dimHead}>
+        <span className={styles.dimLabel}>{label}</span>
+        <span className={`${styles.dimScore} ${cls}`}>
+          {score}
+          <small>/100</small>
+        </span>
       </div>
-      <p style={{ margin: 'var(--space-1) 0 0', whiteSpace: 'pre-wrap' }}>{feedback}</p>
+      <div className={styles.dimBar}>
+        <span
+          className={`${styles.dimBarFill} ${cls}`}
+          style={{ width: `${Math.max(0, Math.min(100, score))}%`, background: 'currentColor' }}
+        />
+      </div>
+      <p className={styles.dimFeedback}>{feedback}</p>
     </div>
   );
 }
 
 export function ScorecardView({ scorecard }: ScorecardViewProps) {
   return (
-    <section style={cardStyle} aria-labelledby="scorecard-heading">
-      <h2 id="scorecard-heading" style={{ margin: 0, fontSize: 'var(--text-md, 1.25rem)' }}>Your scorecard</h2>
-      <Dimension label="Technical" score={scorecard.technicalScore} feedback={scorecard.technicalFeedback} />
-      <Dimension label="Professional" score={scorecard.professionalScore} feedback={scorecard.professionalFeedback} />
-      <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: 'var(--space-3)' }}>
-        <h3 style={{ margin: '0 0 var(--space-1)', fontSize: 'var(--text-base, 1rem)' }}>Overall</h3>
-        <p style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{scorecard.overallFeedback}</p>
+    <section className={styles.scorecard} aria-labelledby="scorecard-heading">
+      <h2 id="scorecard-heading" className={styles.cardTitle} style={{ marginBottom: 0 }}>
+        Your scorecard
+      </h2>
+      <div className={styles.scoreGrid}>
+        <Dimension
+          label="Technical"
+          score={scorecard.technicalScore}
+          feedback={scorecard.technicalFeedback}
+        />
+        <Dimension
+          label="Professional"
+          score={scorecard.professionalScore}
+          feedback={scorecard.professionalFeedback}
+        />
+      </div>
+      <div className={styles.overall}>
+        <p className={styles.cardLabel}>Overall</p>
+        <p className={styles.prose}>{scorecard.overallFeedback}</p>
       </div>
     </section>
   );

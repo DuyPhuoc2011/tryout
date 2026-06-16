@@ -18,7 +18,7 @@ export function TeamFormation({ scenario, chosenRole, starting, onStart }: TeamF
     <div>
       <p className={styles.stepLede}>
         Here&apos;s your team on <strong>{scenario.title}</strong>. The other seats are filled by
-        AI teammates — you talk to the interactive ones as you work.
+        AI teammates. You talk to the interactive ones as you work.
       </p>
 
       <div className={styles.roster}>

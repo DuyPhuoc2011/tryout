@@ -170,7 +170,7 @@ export default function DashboardPage() {
             </h1>
             <p className={styles.greetSub}>
               {phase === 'active'
-                ? 'Your tryout is in progress — pick up where you left off.'
+                ? 'Your tryout is in progress. Pick up where you left off.'
                 : 'Choose a project, claim your seat on the team, and ship a real ticket alongside AI teammates.'}
             </p>
           </div>

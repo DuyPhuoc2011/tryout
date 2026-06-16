@@ -42,7 +42,7 @@ export default function Home() {
             <p className={`${styles.lede} ${styles.reveal} ${styles.d3}`}>
               Tryout drops you into a software team where every role but yours is AI.
               You get a real GitHub repo, a real ticket, and teammates who message you
-              like coworkers. Ship a pull request — get graded on the code{' '}
+              like coworkers. Ship a pull request, then get graded on the code{' '}
               <em>and</em> the craft around it.
             </p>
             <div className={`${styles.heroCtas} ${styles.reveal} ${styles.d4}`}>
@@ -81,7 +81,7 @@ export default function Home() {
                 </div>
               </div>
               <p className={styles.cardBody}>
-                Hey! Welcome to the team 👋 Dropped <b>LUMI-142</b> on you — users want
+                Hey! Welcome to the team 👋 Dropped <b>LUMI-142</b> on you. Users want
                 to archive a task instead of deleting it. Ping me if the spec&apos;s fuzzy.
               </p>
             </div>
@@ -124,7 +124,7 @@ export default function Home() {
             A workday, compressed into one ticket.
           </h2>
           <p className={`${styles.sectionLede} ${styles.onScroll}`}>
-            No whiteboard, no trick questions. You work the way you actually work —
+            No whiteboard, no trick questions. You work the way you actually work:
             read the codebase, talk to your team, open a PR, take the review.
           </p>
 
@@ -142,14 +142,14 @@ export default function Home() {
               <h3 className={styles.stepTitle}>Ship a PR</h3>
               <p className={styles.stepBody}>
                 Clone, implement, open a pull request. CI runs against your branch and a
-                senior engineer reviews the real diff — and expects you to respond to it.
+                senior engineer reviews the real diff, and expects you to respond to it.
               </p>
             </article>
             <article className={`${styles.step} ${styles.onScroll}`}>
               <div className={styles.stepNum}>03</div>
               <h3 className={styles.stepTitle}>Get graded</h3>
               <p className={styles.stepBody}>
-                A scorecard rates the code you wrote and how you carried yourself —
+                A scorecard rates the code you wrote and how you carried yourself:
                 clarity, follow-through, and how you handled the review.
               </p>
             </article>
@@ -177,7 +177,7 @@ export default function Home() {
                 </div>
               </div>
               <p className={styles.mateQuote}>
-                Writes the ticket, owns the “why,” and answers your scope questions —
+                Writes the ticket, owns the “why,” and answers your scope questions,
                 if you ask the right ones.
               </p>
             </article>
@@ -210,7 +210,7 @@ export default function Home() {
 
           <div className={styles.axes}>
             <div className={`${styles.axis} ${styles.onScroll}`}>
-              <p className={styles.axisLabel}>Axis 01 — Technical</p>
+              <p className={styles.axisLabel}>Technical</p>
               <h3 className={styles.axisTitle}>Does the code hold up?</h3>
               <ul className={styles.axisList}>
                 <li>Correctness against the acceptance suite</li>
@@ -220,7 +220,7 @@ export default function Home() {
               </ul>
             </div>
             <div className={`${styles.axis} ${styles.onScroll}`}>
-              <p className={styles.axisLabel}>Axis 02 — Professional</p>
+              <p className={styles.axisLabel}>Professional</p>
               <h3 className={styles.axisTitle}>Would we work with you?</h3>
               <ul className={styles.axisList}>
                 <li>Clear, well-timed communication</li>

@@ -6,8 +6,22 @@ import { api, type ScenarioRunView, type AgentMessageView, type ScorecardView as
 import { RunView } from '@/components/RunView';
 import { ChatPanel } from '@/components/ChatPanel';
 import { ScorecardView } from '@/components/ScorecardView';
+import styles from './run.module.css';
 
 const RUN_ID_KEY = 'tryout_run_id';
+
+function Topbar() {
+  return (
+    <header className={styles.topbar}>
+      <Link href="/dashboard" className={styles.wordmark}>
+        Try<b>out</b>
+      </Link>
+      <Link href="/dashboard" className={styles.back}>
+        ← Workspace
+      </Link>
+    </header>
+  );
+}
 
 export default function RunPage() {
   const [run, setRun] = useState<ScenarioRunView | null>(null);
@@ -46,25 +60,38 @@ export default function RunPage() {
 
   if (!runId) {
     return (
-      <main style={{ maxWidth: 560, margin: '0 auto', padding: 'var(--space-5)', display: 'grid', gap: 'var(--space-3)' }}>
-        <h1 style={{ fontSize: 'var(--text-xl, 1.75rem)', margin: 0 }}>No tryout in progress</h1>
-        <p style={{ color: 'var(--color-muted)', margin: 0 }}>
-          Pick a project and claim your seat to get your repo, your ticket, and a message from your PM.
-        </p>
-        <Link href="/dashboard">Browse projects →</Link>
-      </main>
+      <div className={styles.page}>
+        <Topbar />
+        <div className={styles.center}>
+          <div className={styles.empty}>
+            <h1 className={styles.emptyTitle}>No tryout in progress</h1>
+            <p className={styles.emptyLede}>
+              Pick a project and claim your seat to get your repo, your ticket, and a message from
+              your PM.
+            </p>
+            <Link href="/dashboard" className={styles.btnPrimary}>
+              Browse projects →
+            </Link>
+          </div>
+        </div>
+      </div>
     );
   }
 
   if (!run) {
     return (
-      <main style={{ maxWidth: 560, margin: '0 auto', padding: 'var(--space-5)' }}>
-        {error ? (
-          <p role="alert" style={{ color: 'var(--color-danger, #b42318)' }}>{error}</p>
-        ) : (
-          <p style={{ color: 'var(--color-muted)' }}>Loading your run…</p>
-        )}
-      </main>
+      <div className={styles.page}>
+        <Topbar />
+        <div className={styles.center}>
+          {error ? (
+            <p role="alert" className={styles.alert}>
+              {error}
+            </p>
+          ) : (
+            <span className={styles.spinner} role="status" aria-label="Loading your run" />
+          )}
+        </div>
+      </div>
     );
   }
 
@@ -83,35 +110,55 @@ export default function RunPage() {
   }
 
   return (
-    <div style={{ maxWidth: 980, margin: '0 auto', padding: 'var(--space-5)', display: 'grid', gap: 'var(--space-4)' }}>
-      <RunView run={run} />
+    <div className={styles.page}>
+      <Topbar />
+      <main className={styles.main}>
+        <RunView run={run} />
 
-      {scorecard ? (
-        <ScorecardView scorecard={scorecard} />
-      ) : run.status === 'grading' ? (
-        <p style={{ color: 'var(--color-muted)', margin: 0 }}>Grading in progress… (refreshes automatically)</p>
-      ) : run.latestSubmission ? (
-        <button type="button" onClick={onGrade} disabled={grading}>
-          {grading ? 'Submitting…' : 'Submit for grading'}
-        </button>
-      ) : null}
+        {scorecard ? (
+          <ScorecardView scorecard={scorecard} />
+        ) : run.status === 'grading' ? (
+          <div className={styles.gradeBar}>
+            <span className={styles.spinner} role="status" aria-label="Grading in progress" />
+            <p className={styles.gradeNote}>Grading in progress… (refreshes automatically)</p>
+          </div>
+        ) : run.latestSubmission ? (
+          <div className={styles.gradeBar}>
+            <button
+              type="button"
+              className={styles.btnPrimary}
+              onClick={onGrade}
+              disabled={grading}
+            >
+              {grading ? 'Submitting…' : 'Submit for grading'}
+            </button>
+            {error && (
+              <p role="alert" className={styles.alert}>
+                {error}
+              </p>
+            )}
+          </div>
+        ) : null}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 'var(--space-4)' }}>
-        <ChatPanel
-          runId={run.id}
-          agentRole="pm"
-          title="Mai (PM)"
-          messages={messages}
-          onSent={() => refresh(run.id)}
-        />
-        <ChatPanel
-          runId={run.id}
-          agentRole="senior"
-          title="Alex (Senior)"
-          messages={messages}
-          onSent={() => refresh(run.id)}
-        />
-      </div>
+        <div className={styles.chatGrid}>
+          <ChatPanel
+            runId={run.id}
+            agentRole="pm"
+            name="Mai"
+            roleLabel="Product Manager"
+            messages={messages}
+            onSent={() => refresh(run.id)}
+          />
+          <ChatPanel
+            runId={run.id}
+            agentRole="senior"
+            name="Alex"
+            roleLabel="Senior Engineer"
+            messages={messages}
+            onSent={() => refresh(run.id)}
+          />
+        </div>
+      </main>
     </div>
   );
 }

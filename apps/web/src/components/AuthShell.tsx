@@ -26,25 +26,38 @@ export function AuthShell({ children }: { children: ReactNode }) {
             'linear-gradient(155deg, oklch(34% 0.11 264) 0%, oklch(24% 0.07 270) 100%)',
         }}
       >
-        <span style={{ fontWeight: 750, letterSpacing: '0.02em', fontSize: '1.1rem' }}>
-          Tryout
+        <span
+          style={{
+            fontFamily: 'var(--font-display), sans-serif',
+            fontWeight: 600,
+            letterSpacing: '-0.01em',
+            fontSize: '1.25rem',
+          }}
+        >
+          Try<b style={{ color: 'var(--color-signal, oklch(84% 0.14 86))', fontWeight: 600 }}>out</b>
         </span>
         <div>
           <p
             style={{
+              fontFamily: 'var(--font-display), sans-serif',
               fontSize: 'var(--text-display)',
-              lineHeight: 1.1,
-              fontWeight: 720,
+              lineHeight: 1.05,
+              letterSpacing: '-0.02em',
+              fontWeight: 600,
               margin: '0 0 var(--space-3)',
             }}
           >
             Do the job.
             <br />
-            Not watch it.
+            Not{' '}
+            <span style={{ color: 'var(--color-signal, oklch(84% 0.14 86))', fontWeight: 700 }}>
+              watch
+            </span>{' '}
+            it.
           </p>
           <p style={{ maxWidth: '34ch', color: 'oklch(86% 0.03 264)', lineHeight: 1.55, margin: 0 }}>
             Join a software team where every other role is an AI teammate. Ship a real pull
-            request on a real codebase — and get graded on the code and the craft around it.
+            request on a real codebase, and get graded on the code and the craft around it.
           </p>
         </div>
         <span style={{ color: 'oklch(78% 0.03 264)', fontSize: 'var(--text-sm)' }}>

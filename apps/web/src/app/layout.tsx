@@ -1,9 +1,12 @@
 import type { Metadata } from 'next';
-import { Fraunces, Hanken_Grotesk, JetBrains_Mono } from 'next/font/google';
+import { Space_Grotesk, Hanken_Grotesk, JetBrains_Mono } from 'next/font/google';
 import './globals.css';
 
-const display = Fraunces({
+// Display: a grotesque with engineering character — reads as a dev tool, not a
+// magazine. Replaces the previously-used editorial serif.
+const display = Space_Grotesk({
   subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
   variable: '--font-display',
   display: 'swap',
 });
@@ -21,7 +24,7 @@ const mono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Tryout — Do the job. Not watch it.',
+  title: 'Tryout: Do the job. Not watch it.',
   description:
     'Tryout is a technical interview where every role but yours is AI. Ship a real pull request on a real codebase, and get graded on the code and the craft around it.',
 };

@@ -2,32 +2,24 @@
 
 import { useState } from 'react';
 import { api, type AgentMessageView } from '@/lib/api';
+import styles from '@/app/run/run.module.css';
 
 interface ChatPanelProps {
   runId: string;
   agentRole: 'pm' | 'senior';
-  title: string;
+  name: string;
+  roleLabel: string;
   messages: AgentMessageView[];
   onSent: () => void;
 }
 
-const panelStyle: React.CSSProperties = {
-  background: 'var(--color-surface)',
-  border: '1px solid var(--color-border)',
-  borderRadius: 'var(--radius-md, 12px)',
-  padding: 'var(--space-4)',
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 'var(--space-3)',
-  minHeight: 320,
-};
-
-export function ChatPanel({ runId, agentRole, title, messages, onSent }: ChatPanelProps) {
+export function ChatPanel({ runId, agentRole, name, roleLabel, messages, onSent }: ChatPanelProps) {
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const thread = messages.filter((m) => m.agentRole === agentRole);
+  const initial = name.charAt(0).toUpperCase();
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -47,40 +39,53 @@ export function ChatPanel({ runId, agentRole, title, messages, onSent }: ChatPan
   }
 
   return (
-    <section style={panelStyle} aria-label={`Chat with ${title}`}>
-      <h2 style={{ margin: 0, fontSize: 'var(--text-md, 1.25rem)' }}>{title}</h2>
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', overflowY: 'auto' }}>
+    <section className={styles.chatPanel} aria-label={`Chat with ${name}`}>
+      <div className={styles.chatHead}>
+        <span
+          className={`${styles.chatAvatar} ${
+            agentRole === 'pm' ? styles.avatarPm : styles.avatarSenior
+          }`}
+        >
+          {initial}
+        </span>
+        <div>
+          <div className={styles.chatName}>{name}</div>
+          <div className={styles.chatRole}>{roleLabel}</div>
+        </div>
+      </div>
+
+      <div className={styles.thread}>
         {thread.length === 0 ? (
-          <p style={{ color: 'var(--color-muted)', margin: 0 }}>No messages yet. Say hello.</p>
+          <p className={styles.threadEmpty}>No messages yet. Say hello.</p>
         ) : (
           thread.map((m) => (
             <div
               key={m.id}
-              style={{
-                alignSelf: m.direction === 'user' ? 'flex-end' : 'flex-start',
-                maxWidth: '85%',
-                background:
-                  m.direction === 'user' ? 'var(--color-accent-soft, #eef2ff)' : 'var(--color-bg, #f6f6f6)',
-                borderRadius: 10,
-                padding: 'var(--space-2) var(--space-3)',
-                whiteSpace: 'pre-wrap',
-              }}
+              className={`${styles.bubble} ${
+                m.direction === 'user' ? styles.bubbleUser : styles.bubbleAgent
+              }`}
             >
               {m.content}
             </div>
           ))
         )}
       </div>
-      {error && <p role="alert" style={{ color: 'var(--color-danger, #b42318)', margin: 0 }}>{error}</p>}
-      <form onSubmit={onSubmit} style={{ display: 'flex', gap: 'var(--space-2)' }}>
+
+      {error && (
+        <p role="alert" className={styles.alert} style={{ margin: '0 1rem' }}>
+          {error}
+        </p>
+      )}
+
+      <form onSubmit={onSubmit} className={styles.chatForm}>
         <input
-          aria-label={`Message ${title}`}
+          className={styles.chatInput}
+          aria-label={`Message ${name}`}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          placeholder={`Message ${title}…`}
-          style={{ flex: 1 }}
+          placeholder={`Message ${name}…`}
         />
-        <button type="submit" disabled={sending}>
+        <button type="submit" className={styles.sendBtn} disabled={sending}>
           {sending ? 'Sending…' : 'Send'}
         </button>
       </form>

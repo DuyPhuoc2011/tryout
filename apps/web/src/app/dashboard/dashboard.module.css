@@ -53,7 +53,7 @@
 }
 .wordmark {
   justify-self: start;
-  font-family: var(--font-display), serif;
+  font-family: var(--font-display), sans-serif;
   font-weight: 600;
   font-size: 1.3rem;
   letter-spacing: -0.01em;
@@ -213,7 +213,7 @@
   margin: 0 0 0.7rem;
 }
 .greetTitle {
-  font-family: var(--font-display), serif;
+  font-family: var(--font-display), sans-serif;
   font-weight: 540;
   font-size: clamp(2rem, 1.5rem + 2.4vw, 3rem);
   line-height: 1.05;
@@ -267,7 +267,7 @@
   margin: 0 0 0.4rem;
 }
 .runTitle {
-  font-family: var(--font-display), serif;
+  font-family: var(--font-display), sans-serif;
   font-weight: 560;
   font-size: clamp(1.4rem, 1.1rem + 1.4vw, 2rem);
   line-height: 1.1;
@@ -427,7 +427,7 @@
   margin: 0 0 0.5rem;
 }
 .scoreValue {
-  font-family: var(--font-display), serif;
+  font-family: var(--font-display), sans-serif;
   font-weight: 600;
   font-size: 2.2rem;
   line-height: 1;
@@ -504,7 +504,7 @@
     var(--surface);
 }
 .emptyTitle {
-  font-family: var(--font-display), serif;
+  font-family: var(--font-display), sans-serif;
   font-weight: 560;
   font-size: clamp(1.6rem, 1.2rem + 1.6vw, 2.3rem);
   line-height: 1.08;
@@ -536,7 +536,7 @@
   color: var(--paper-dim);
 }
 .miniNum {
-  font-family: var(--font-display), serif;
+  font-family: var(--font-display), sans-serif;
   font-size: 1.05rem;
   color: var(--signal);
 }
@@ -703,7 +703,7 @@
   color: var(--paper-faint);
 }
 .projectTitle {
-  font-family: var(--font-display), serif;
+  font-family: var(--font-display), sans-serif;
   font-weight: 560;
   font-size: 1.2rem;
   line-height: 1.15;
@@ -777,7 +777,7 @@
   color: var(--paper-faint);
 }
 .roleTitle {
-  font-family: var(--font-display), serif;
+  font-family: var(--font-display), sans-serif;
   font-weight: 560;
   font-size: 1.1rem;
   color: var(--paper);
@@ -815,7 +815,7 @@
   height: 42px;
   border-radius: 12px;
   flex: none;
-  font-family: var(--font-display), serif;
+  font-family: var(--font-display), sans-serif;
   font-weight: 600;
   font-size: 1rem;
   color: var(--ink-deep);
@@ -893,7 +893,7 @@
   width: 40px;
   height: 40px;
   border-radius: 11px;
-  font-family: var(--font-display), serif;
+  font-family: var(--font-display), sans-serif;
   font-weight: 600;
   font-size: 1.05rem;
   color: var(--ink-deep);
@@ -938,7 +938,7 @@
   gap: 0.85rem;
 }
 .footerWordmark {
-  font-family: var(--font-display), serif;
+  font-family: var(--font-display), sans-serif;
   font-weight: 600;
   font-size: 1.05rem;
   letter-spacing: -0.01em;
