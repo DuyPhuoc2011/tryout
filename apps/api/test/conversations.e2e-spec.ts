@@ -5,6 +5,7 @@ import { AppModule } from '../src/app.module';
 import { GitHubService } from '../src/github/github.service';
 import { QueueService } from '../src/queue/queue.service';
 import { LLM_ROUTER } from '../src/llm/llm.module';
+import { resolveStartRunBody } from './helpers/start-run';
 
 const mockGitHubService = {
   createRepoFromTemplate: jest.fn().mockResolvedValue({
@@ -59,6 +60,7 @@ describe('Conversations (e2e)', () => {
     const start = await request(app.getHttpServer())
       .post('/scenario-runs')
       .set('Authorization', `Bearer ${authToken}`)
+      .send(await resolveStartRunBody(app, authToken))
       .expect(201);
     runId = start.body.id;
   });

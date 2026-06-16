@@ -1,4 +1,11 @@
-import type { AuthResponse, ScenarioCompanyContext, ScenarioTicket } from '@tryout/shared';
+import type {
+  AuthResponse,
+  ScenarioCompanyContext,
+  ScenarioTicket,
+  ScenarioCatalogItem,
+  ScenarioDetailView,
+  TeamSeatView,
+} from '@tryout/shared';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
 
@@ -27,15 +34,19 @@ export interface StartRunResponse {
   status: string;
 }
 
+export type TeamSeatViewWithYou = TeamSeatView & { isYou: boolean };
+
 export interface ScenarioRunView {
   id: string;
   status: string;
   startedAt: string | null;
+  chosenRole: string | null;
   scenario: {
     title: string;
     companyContext: ScenarioCompanyContext;
     ticket: ScenarioTicket;
   } | null;
+  team: TeamSeatViewWithYou[];
   repo: { url: string; prNumber: number | null } | null;
   pmIntro: { content: string; createdAt: string } | null;
   latestSubmission: { prUrl: string; ciStatus: string | null; createdAt: string } | null;
@@ -69,12 +80,28 @@ export const api = {
   login: (email: string, password: string) =>
     post<AuthResponse>('/auth/login', { email, password }),
 
-  startRun: async (): Promise<StartRunResponse> => {
+  getScenarios: async (): Promise<ScenarioCatalogItem[]> => {
+    const res = await fetch(`${API_URL}/scenarios`, { headers: { ...authHeaders() } });
+    if (!res.ok) throw new Error(`Failed to load scenarios (${res.status})`);
+    return res.json() as Promise<ScenarioCatalogItem[]>;
+  },
+
+  getScenario: async (id: string): Promise<ScenarioDetailView> => {
+    const res = await fetch(`${API_URL}/scenarios/${id}`, { headers: { ...authHeaders() } });
+    if (!res.ok) throw new Error(`Failed to load scenario (${res.status})`);
+    return res.json() as Promise<ScenarioDetailView>;
+  },
+
+  startRun: async (scenarioId: string, role: string): Promise<StartRunResponse> => {
     const res = await fetch(`${API_URL}/scenario-runs`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ scenarioId, role }),
     });
-    if (!res.ok) throw new Error(`Failed to start run (${res.status})`);
+    if (!res.ok) {
+      const message = await res.text();
+      throw new Error(message || `Failed to start run (${res.status})`);
+    }
     return res.json() as Promise<StartRunResponse>;
   },
 

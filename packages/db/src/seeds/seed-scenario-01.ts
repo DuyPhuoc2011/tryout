@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm';
 import { createDb } from '../client';
-import { tracks, scenarios } from '../schema';
+import { tracks, scenarios, teamRoles } from '../schema';
 
 const db = createDb(
   process.env.DATABASE_URL ?? 'postgres://tryout:tryout@localhost:5432/tryout',
@@ -13,6 +13,19 @@ const SCENARIO_DEFINITION = {
   version: 1,
   difficulty: 'intro',
   estimated_minutes: 60,
+  catalog: {
+    summary:
+      'Ship your first ticket on a live NestJS REST API: add soft-archive to the Tasks resource, with a PR and a senior review.',
+    difficulty: 'intro',
+    tags: ['NestJS', 'REST', 'TypeScript', 'CRUD'],
+  },
+  team: [
+    'product_manager',
+    'engineering_manager',
+    'senior_engineer',
+    'backend_engineer',
+    'qa_engineer',
+  ],
   company_context: {
     name: 'Lumi',
     product:
@@ -125,6 +138,192 @@ const SCENARIO_DEFINITION = {
   },
 };
 
+// The canonical team seats. Idempotent on `key`.
+const TEAM_ROLES = [
+  {
+    key: 'product_manager',
+    title: 'Product Manager',
+    description: 'Owns the "why", writes the ticket, and answers scope questions.',
+    category: 'leadership' as const,
+    aiName: 'Mai',
+    aiInitial: 'M',
+    interactive: true,
+    selectableByCandidate: false,
+    sortOrder: 10,
+  },
+  {
+    key: 'engineering_manager',
+    title: 'Engineering Manager',
+    description: 'Keeps the team unblocked and the delivery on track.',
+    category: 'leadership' as const,
+    aiName: 'Linh',
+    aiInitial: 'L',
+    interactive: false,
+    selectableByCandidate: false,
+    sortOrder: 20,
+  },
+  {
+    key: 'senior_engineer',
+    title: 'Senior Engineer',
+    description: 'Reviews your diff, requests changes, and nudges you when you ask.',
+    category: 'engineering' as const,
+    aiName: 'Alex',
+    aiInitial: 'A',
+    interactive: true,
+    selectableByCandidate: false,
+    sortOrder: 30,
+  },
+  {
+    key: 'backend_engineer',
+    title: 'Backend Engineer',
+    description: 'Implements the ticket on the service and ships the PR.',
+    category: 'engineering' as const,
+    aiName: null,
+    aiInitial: null,
+    interactive: false,
+    selectableByCandidate: true,
+    sortOrder: 40,
+  },
+  {
+    key: 'frontend_engineer',
+    title: 'Frontend Engineer',
+    description: 'Builds the UI and wires it to the API.',
+    category: 'engineering' as const,
+    aiName: null,
+    aiInitial: null,
+    interactive: false,
+    selectableByCandidate: true,
+    sortOrder: 41,
+  },
+  {
+    key: 'mobile_engineer',
+    title: 'Mobile Engineer',
+    description: 'Builds the native/mobile client and its flows.',
+    category: 'engineering' as const,
+    aiName: null,
+    aiInitial: null,
+    interactive: false,
+    selectableByCandidate: true,
+    sortOrder: 42,
+  },
+  {
+    key: 'qa_engineer',
+    title: 'QA Engineer',
+    description: 'Guards quality — exercises edge cases and the acceptance suite.',
+    category: 'qa' as const,
+    aiName: 'Tom',
+    aiInitial: 'T',
+    interactive: false,
+    selectableByCandidate: false,
+    sortOrder: 50,
+  },
+  {
+    key: 'product_designer',
+    title: 'Product Designer',
+    description: 'Owns the experience and how the work should feel.',
+    category: 'design' as const,
+    aiName: 'Sara',
+    aiInitial: 'S',
+    interactive: false,
+    selectableByCandidate: false,
+    sortOrder: 60,
+  },
+];
+
+// "Coming soon" catalog entries — diverse project types, not yet playable.
+const COMING_SOON = [
+  {
+    title: 'Make the orders service retry-safe',
+    projectType: 'microservices' as const,
+    company: 'Cargo',
+    summary:
+      'Add idempotent retries to the Orders microservice so duplicate webhooks stop double-charging.',
+    difficulty: 'intermediate' as const,
+    tags: ['microservices', 'idempotency', 'queues'],
+    team: ['product_manager', 'engineering_manager', 'senior_engineer', 'backend_engineer', 'qa_engineer'],
+  },
+  {
+    title: 'Add saved filters to the dashboard',
+    projectType: 'frontend_web' as const,
+    company: 'Pulse',
+    summary:
+      'Let users save and re-apply table filters in a React dashboard, persisted to the URL and the backend.',
+    difficulty: 'intermediate' as const,
+    tags: ['React', 'Next.js', 'state', 'URL'],
+    team: ['product_manager', 'product_designer', 'senior_engineer', 'frontend_engineer', 'qa_engineer'],
+  },
+  {
+    title: 'Ship offline mode for the tracker app',
+    projectType: 'mobile' as const,
+    company: 'Trail',
+    summary:
+      'Cache trips locally and sync when the device comes back online, with conflict handling.',
+    difficulty: 'advanced' as const,
+    tags: ['mobile', 'offline', 'sync'],
+    team: ['product_manager', 'product_designer', 'senior_engineer', 'mobile_engineer', 'qa_engineer'],
+  },
+  {
+    title: 'Add auto-update to the desktop client',
+    projectType: 'desktop' as const,
+    company: 'Forge',
+    summary:
+      'Wire a background auto-updater into the Electron desktop app with a safe rollback path.',
+    difficulty: 'advanced' as const,
+    tags: ['desktop', 'Electron', 'releases'],
+    team: ['product_manager', 'engineering_manager', 'senior_engineer', 'frontend_engineer', 'qa_engineer'],
+  },
+];
+
+async function seedTeamRoles() {
+  console.log('Seeding team roles...');
+  for (const role of TEAM_ROLES) {
+    const existing = await db
+      .select({ id: teamRoles.id })
+      .from(teamRoles)
+      .where(eq(teamRoles.key, role.key))
+      .limit(1);
+    if (existing.length > 0) {
+      await db.update(teamRoles).set(role).where(eq(teamRoles.key, role.key));
+    } else {
+      await db.insert(teamRoles).values(role);
+    }
+  }
+  console.log(`  ${TEAM_ROLES.length} team roles ready.`);
+}
+
+async function seedComingSoon(trackId: string) {
+  console.log('Seeding coming-soon catalog scenarios...');
+  for (const item of COMING_SOON) {
+    const definition = {
+      title: item.title,
+      catalog: { summary: item.summary, difficulty: item.difficulty, tags: item.tags },
+      team: item.team,
+      company_context: { name: item.company, product: '', team: '', user_role: '' },
+      ticket: { id: 'SOON', title: item.title, body: 'Coming soon.' },
+    };
+    const existing = await db
+      .select({ id: scenarios.id })
+      .from(scenarios)
+      .where(eq(scenarios.title, item.title))
+      .limit(1);
+    const values = {
+      trackId,
+      title: item.title,
+      version: 1,
+      definition,
+      status: 'draft',
+      projectType: item.projectType,
+      available: false,
+    };
+    if (existing.length > 0) {
+      await db.update(scenarios).set(values).where(eq(scenarios.title, item.title));
+    } else {
+      await db.insert(scenarios).values(values);
+    }
+  }
+  console.log(`  ${COMING_SOON.length} coming-soon scenarios ready.`);
+}
+
 async function seed() {
   console.log('Seeding Track: backend...');
   const existingTrack = await db
@@ -144,6 +343,15 @@ async function seed() {
   }
 
   console.log('Seeding Scenario 01...');
+  const scenarioValues = {
+    trackId,
+    title: SCENARIO_DEFINITION.title,
+    version: SCENARIO_DEFINITION.version,
+    definition: SCENARIO_DEFINITION,
+    status: 'active',
+    projectType: 'backend_monolith' as const,
+    available: true,
+  };
   const existingScenario = await db
     .select()
     .from(scenarios)
@@ -151,20 +359,18 @@ async function seed() {
     .limit(1);
 
   if (existingScenario.length > 0) {
-    console.log(`  Scenario already exists (id=${existingScenario[0].id}), skipping insert.`);
+    await db
+      .update(scenarios)
+      .set(scenarioValues)
+      .where(eq(scenarios.id, existingScenario[0].id));
+    console.log(`  Updated scenario id=${existingScenario[0].id} (catalog fields).`);
   } else {
-    const [scenario] = await db
-      .insert(scenarios)
-      .values({
-        trackId,
-        title: SCENARIO_DEFINITION.title,
-        version: SCENARIO_DEFINITION.version,
-        definition: SCENARIO_DEFINITION,
-        status: 'active',
-      })
-      .returning();
+    const [scenario] = await db.insert(scenarios).values(scenarioValues).returning();
     console.log(`  Inserted scenario id=${scenario.id}`);
   }
+
+  await seedTeamRoles();
+  await seedComingSoon(trackId);
 
   console.log('Seed complete.');
   process.exit(0);

@@ -9,6 +9,7 @@ import { PmService } from '../src/agents/pm.service';
 import { SeniorReviewService } from '../src/agents/senior-review.service';
 import { DRIZZLE } from '../src/db/db.module';
 import { schema } from '@tryout/db';
+import { resolveStartRunBody } from './helpers/start-run';
 
 const mockGitHubService = {
   createRepoFromTemplate: jest.fn().mockResolvedValue({
@@ -76,6 +77,7 @@ describe('Visible loop (e2e)', () => {
     const startRes = await request(app.getHttpServer())
       .post('/scenario-runs')
       .set('Authorization', `Bearer ${authToken}`)
+      .send(await resolveStartRunBody(app, authToken))
       .expect(201);
     const runId = startRes.body.id as string;
     expect(startRes.body.repoUrl).toBe('https://github.com/test-owner/lumi-tasks-v2');

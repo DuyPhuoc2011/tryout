@@ -18,7 +18,8 @@ export default function LoginPage() {
     try {
       const res = await api.login(email, password);
       localStorage.setItem('tryout_token', res.token);
-      window.location.href = '/run';
+      localStorage.setItem('tryout_email', res.user.email);
+      window.location.href = '/dashboard';
     } catch {
       setError('Invalid email or password.');
     } finally {

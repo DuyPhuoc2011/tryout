@@ -18,7 +18,8 @@ export default function SignupPage() {
     try {
       const res = await api.signup(email, password);
       localStorage.setItem('tryout_token', res.token);
-      window.location.href = '/run';
+      localStorage.setItem('tryout_email', res.user.email);
+      window.location.href = '/dashboard';
     } catch {
       setError('Unable to create an account with those details.');
     } finally {

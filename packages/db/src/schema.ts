@@ -5,6 +5,7 @@ import {
   text,
   integer,
   jsonb,
+  boolean,
   timestamp,
 } from 'drizzle-orm/pg-core';
 
@@ -18,6 +19,19 @@ export const scenarioRunStatus = pgEnum('scenario_run_status', [
 export const agentRoleEnum = pgEnum('agent_role', ['pm', 'senior']);
 export const messageDirectionEnum = pgEnum('message_direction', ['user', 'agent']);
 export const reviewVerdictEnum = pgEnum('review_verdict', ['approve', 'request_changes']);
+export const projectTypeEnum = pgEnum('project_type', [
+  'backend_monolith',
+  'microservices',
+  'frontend_web',
+  'mobile',
+  'desktop',
+]);
+export const teamRoleCategoryEnum = pgEnum('team_role_category', [
+  'leadership',
+  'engineering',
+  'design',
+  'qa',
+]);
 
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -43,6 +57,25 @@ export const scenarios = pgTable('scenarios', {
   version: integer('version').notNull().default(1),
   definition: jsonb('definition').notNull(),
   status: text('status').notNull().default('draft'),
+  projectType: projectTypeEnum('project_type').notNull().default('backend_monolith'),
+  available: boolean('available').notNull().default(false),
+});
+
+// The canonical set of team seats. Seeded; referenced by scenario team templates.
+export const teamRoles = pgTable('team_roles', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  key: text('key').notNull().unique(),
+  title: text('title').notNull(),
+  description: text('description').notNull(),
+  category: teamRoleCategoryEnum('category').notNull(),
+  // The AI persona that fills this seat (null = filled by the candidate / generic).
+  aiName: text('ai_name'),
+  aiInitial: text('ai_initial'),
+  // Whether this seat is a live, interactive agent today (PM, Senior).
+  interactive: boolean('interactive').notNull().default(false),
+  // Whether a candidate may claim this seat.
+  selectableByCandidate: boolean('selectable_by_candidate').notNull().default(false),
+  sortOrder: integer('sort_order').notNull().default(0),
 });
 
 export const scenarioRuns = pgTable('scenario_runs', {
@@ -54,6 +87,8 @@ export const scenarioRuns = pgTable('scenario_runs', {
     .notNull()
     .references(() => scenarios.id),
   status: scenarioRunStatus('status').notNull().default('onboarding'),
+  // The team-role key the candidate claimed for this run.
+  chosenRole: text('chosen_role'),
   startedAt: timestamp('started_at', { withTimezone: true }),
   deadlineAt: timestamp('deadline_at', { withTimezone: true }),
   repoMetadata: jsonb('repo_metadata'),

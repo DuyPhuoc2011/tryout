@@ -8,6 +8,7 @@ import { LLM_ROUTER } from '../src/llm/llm.module';
 import { GradingService } from '../src/grading/grading.service';
 import { DRIZZLE } from '../src/db/db.module';
 import { schema } from '@tryout/db';
+import { resolveStartRunBody } from './helpers/start-run';
 
 const mockGitHubService = {
   createRepoFromTemplate: jest.fn().mockResolvedValue({
@@ -68,6 +69,7 @@ describe('Grading (e2e)', () => {
     const start = await request(app.getHttpServer())
       .post('/scenario-runs')
       .set('Authorization', `Bearer ${authToken}`)
+      .send(await resolveStartRunBody(app, authToken))
       .expect(201);
     runId = start.body.id;
   });

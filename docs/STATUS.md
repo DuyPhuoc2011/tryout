@@ -1,6 +1,6 @@
 # Tryout — Project Status
 
-_Last updated: 2026-06-15_
+_Last updated: 2026-06-16_
 
 ## Overview
 
@@ -146,6 +146,49 @@ AI-powered technical interview platform. Candidates receive a real GitHub repo, 
 ## M5 — Polish 🔲
 
 **Goal:** Tighten UX, add retry/next, soft deadline, the optional scope-change event.
+
+---
+
+## In Progress — Project Catalog → Role → Team Formation 🚧
+
+**Design doc:** `docs/superpowers/specs/2026-06-16-project-catalog-design.md` (approved)
+
+Replaces the dashboard's single "Start a tryout" action with a guided flow: browse a
+**catalog** of project types → **pick a project** → **pick your role** → **build your team**
+(remaining seats auto-filled with AI teammates, visual roster) → **Start** → `/run`.
+Team is a visual roster only; runtime chat stays PM (Mai) + Senior (Alex).
+
+### Done (code complete; typecheck + unit tests green)
+- [x] **DB schema** (`packages/db/src/schema.ts`): `project_type` + `team_role_category` enums;
+      `scenarios.project_type` / `scenarios.available`; new `team_roles` table; `scenario_runs.chosen_role`
+- [x] **Migration generated:** `migrations/0001_flaky_ink.sql` (⚠️ **not yet applied to the live DB**)
+- [x] **Shared types** (`packages/shared/src/catalog.ts`): `ProjectType`, `TeamRoleCategory`,
+      `ScenarioCatalogMeta`, `ScenarioCatalogItem`, `TeamSeatView`, `ScenarioDetailView`,
+      `PROJECT_TYPE_LABELS`; `ScenarioDefinition` extended with `team?` + `catalog?`
+- [x] **Seeds** (`seeds/seed-scenario-01.ts`): scenario-01 backfilled (`projectType=backend_monolith`,
+      `available=true`, `definition.catalog`, `definition.team`); 8 `team_roles` seeded;
+      4 "coming soon" scenarios (microservices/frontend_web/mobile/desktop, `available=false`); all idempotent
+- [x] **API `ScenariosModule`** (`apps/api/src/scenarios/`): `GET /scenarios` (catalog, available-first),
+      `GET /scenarios/:id` (resolved team + `selectableRoles`); registered in `app.module.ts`
+- [x] **API `scenario-runs`**: `CreateRunDto { scenarioId, role }`; `startRun` validates scenario
+      exists + `available` + role is a selectable seat, persists `chosenRole`, uses the chosen scenario
+      (replaced the hardcoded backend-track lookup); `getRun` returns `chosenRole` + resolved team roster (`isYou`)
+- [x] **Web** (`apps/web/src/app/dashboard/`): `CatalogFlow` (catalog→role→team state machine),
+      `ProjectCatalog`, `RolePicker`, `TeamFormation`, `ResumeCard`; `dashboard.module.css` extended;
+      `page.tsx` renders flow (empty) / resume card (active)
+- [x] **Web `lib/api.ts`**: `getScenarios()`, `getScenario(id)`, `startRun(scenarioId, role)`;
+      `ScenarioRunView` gains `chosenRole` + `team`
+- [x] **Web `/run` page**: removed the legacy no-arg `startRun`; no-run state links to `/dashboard`
+- [x] **Tests**: new `test/scenarios.e2e-spec.ts`; new validation cases in `scenario-runs.e2e-spec.ts`;
+      4 e2e specs updated to send the POST body via `test/helpers/start-run.ts`
+- [x] **Verified**: `tsc --noEmit` clean for shared/db/api/web; API unit tests 29/29 pass
+
+### Pending (blocked — Docker/Postgres engine was down)
+- [ ] Apply migration: `DATABASE_URL=postgres://tryout:tryout@localhost:5432/tryout pnpm --filter @tryout/db migrate`
+- [ ] Reseed: `DATABASE_URL=... pnpm --filter @tryout/db seed`
+- [ ] Run e2e (needs Postgres + `JWT_SECRET=dev`): `pnpm --filter @tryout/api test:e2e`
+- [ ] Manual web smoke of the catalog → role → team → start flow
+- [ ] Commit (verify live port first — see memory `postgres-host-port`, was 5432)
 
 ---
 

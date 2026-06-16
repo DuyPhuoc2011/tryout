@@ -4,6 +4,7 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { GitHubService } from '../src/github/github.service';
 import { QueueService } from '../src/queue/queue.service';
+import { resolveStartRunBody } from './helpers/start-run';
 
 const mockGitHubService = {
   createRepoFromTemplate: jest.fn().mockResolvedValue({
@@ -68,10 +69,44 @@ describe('ScenarioRuns (e2e)', () => {
     await request(app.getHttpServer()).post('/scenario-runs').expect(401);
   });
 
+  it('POST /scenario-runs — rejects a missing/invalid body', async () => {
+    await request(app.getHttpServer())
+      .post('/scenario-runs')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({})
+      .expect(400);
+  });
+
+  it('POST /scenario-runs — rejects an unavailable scenario', async () => {
+    const list = await request(app.getHttpServer())
+      .get('/scenarios')
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(200);
+    const unavailable = list.body.find((s: { available: boolean }) => !s.available);
+    if (unavailable) {
+      await request(app.getHttpServer())
+        .post('/scenario-runs')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ scenarioId: unavailable.id, role: 'backend_engineer' })
+        .expect(400);
+    }
+  });
+
+  it('POST /scenario-runs — rejects a non-selectable role', async () => {
+    const { scenarioId } = await resolveStartRunBody(app, authToken);
+    await request(app.getHttpServer())
+      .post('/scenario-runs')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({ scenarioId, role: 'product_manager' })
+      .expect(400);
+  });
+
   it('POST /scenario-runs — creates a run and returns repoUrl', async () => {
+    const body = await resolveStartRunBody(app, authToken);
     const res = await request(app.getHttpServer())
       .post('/scenario-runs')
       .set('Authorization', `Bearer ${authToken}`)
+      .send(body)
       .expect(201);
 
     expect(res.body.id).toBeDefined();
@@ -84,9 +119,11 @@ describe('ScenarioRuns (e2e)', () => {
   });
 
   it('GET /scenario-runs/:id — returns the run with repo info', async () => {
+    const body = await resolveStartRunBody(app, authToken);
     const createRes = await request(app.getHttpServer())
       .post('/scenario-runs')
       .set('Authorization', `Bearer ${authToken}`)
+      .send(body)
       .expect(201);
 
     const runId = createRes.body.id as string;

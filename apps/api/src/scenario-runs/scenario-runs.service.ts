@@ -1,12 +1,20 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { eq, desc, and } from 'drizzle-orm';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { eq, desc, and, asc } from 'drizzle-orm';
 import type { Db } from '@tryout/db';
 import { schema } from '@tryout/db';
-import type { ScenarioDefinition } from '@tryout/shared';
+import type { ScenarioDefinition, TeamSeatView } from '@tryout/shared';
 import { DRIZZLE } from '../db/db.module';
 import { GitHubService } from '../github/github.service';
 import { QueueService } from '../queue/queue.service';
 import { env } from '../config/env';
+import { CreateRunDto } from './dto/create-run.dto';
+
+type TeamRoleRow = typeof schema.teamRoles.$inferSelect;
 
 @Injectable()
 export class ScenarioRunsService {
@@ -16,21 +24,46 @@ export class ScenarioRunsService {
     private readonly queue: QueueService,
   ) {}
 
-  async startRun(userId: string): Promise<{ id: string; repoUrl: string; status: string }> {
+  async startRun(
+    userId: string,
+    dto: CreateRunDto,
+  ): Promise<{ id: string; repoUrl: string; status: string }> {
     const [scenario] = await this.db
-      .select({ id: schema.scenarios.id })
+      .select()
       .from(schema.scenarios)
-      .innerJoin(schema.tracks, eq(schema.scenarios.trackId, schema.tracks.id))
-      .where(eq(schema.tracks.name, 'backend'))
+      .where(eq(schema.scenarios.id, dto.scenarioId))
       .limit(1);
 
     if (!scenario) {
-      throw new NotFoundException('No active scenario found for the backend track.');
+      throw new NotFoundException(`Scenario ${dto.scenarioId} not found.`);
+    }
+    if (!scenario.available) {
+      throw new BadRequestException('This scenario is not available to start yet.');
+    }
+
+    const def = scenario.definition as ScenarioDefinition;
+    const teamKeys = def.team ?? [];
+    if (!teamKeys.includes(dto.role)) {
+      throw new BadRequestException(`Role "${dto.role}" is not part of this scenario's team.`);
+    }
+    const [roleRow] = await this.db
+      .select()
+      .from(schema.teamRoles)
+      .where(eq(schema.teamRoles.key, dto.role))
+      .limit(1);
+    if (!roleRow || !roleRow.selectableByCandidate) {
+      throw new BadRequestException(`Role "${dto.role}" cannot be claimed by a candidate.`);
     }
 
     const [run] = await this.db
       .insert(schema.scenarioRuns)
-      .values({ userId, scenarioId: scenario.id, status: 'onboarding', startedAt: new Date() })
+      .values({
+        userId,
+        scenarioId: scenario.id,
+        chosenRole: dto.role,
+        status: 'onboarding',
+        startedAt: new Date(),
+      })
       .returning();
 
     const created = await this.github.createRepoFromTemplate(userId);
@@ -71,6 +104,7 @@ export class ScenarioRunsService {
       .where(eq(schema.scenarios.id, run.scenarioId))
       .limit(1);
     const def = scenario?.definition as ScenarioDefinition | undefined;
+    const team = await this.resolveTeam(def?.team ?? [], run.chosenRole);
 
     const [repo] = await this.db
       .select()
@@ -113,13 +147,42 @@ export class ScenarioRunsService {
       id: run.id,
       status: run.status,
       startedAt: run.startedAt,
+      chosenRole: run.chosenRole,
       scenario: def
         ? { title: def.title, companyContext: def.company_context, ticket: def.ticket }
         : null,
+      team,
       repo: repo ? { url: repo.url, prNumber: repo.prNumber } : null,
       pmIntro: pmIntro ?? null,
       latestSubmission,
       latestReview,
     };
+  }
+
+  /** Resolve a scenario's team-key list into seats, flagging the candidate's seat. */
+  private async resolveTeam(
+    teamKeys: string[],
+    chosenRole: string | null,
+  ): Promise<(TeamSeatView & { isYou: boolean })[]> {
+    if (teamKeys.length === 0) return [];
+    const roles = await this.db
+      .select()
+      .from(schema.teamRoles)
+      .orderBy(asc(schema.teamRoles.sortOrder));
+    const byKey = new Map(roles.map((r) => [r.key, r]));
+    return teamKeys
+      .map((key) => byKey.get(key))
+      .filter((r): r is TeamRoleRow => Boolean(r))
+      .map((r) => ({
+        key: r.key,
+        title: r.title,
+        description: r.description,
+        category: r.category,
+        aiName: r.aiName,
+        aiInitial: r.aiInitial,
+        interactive: r.interactive,
+        selectable: r.selectableByCandidate,
+        isYou: r.key === chosenRole,
+      }));
   }
 }

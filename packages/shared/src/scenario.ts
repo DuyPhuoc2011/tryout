@@ -51,4 +51,8 @@ export interface ScenarioDefinition {
   };
   ground_truth: ScenarioGroundTruth;
   rubric: ScenarioRubric;
+  /** Ordered list of team-role keys that make up this scenario's team. */
+  team?: string[];
+  /** Catalog display metadata (summary, difficulty, tags). */
+  catalog?: import('./catalog').ScenarioCatalogMeta;
 }

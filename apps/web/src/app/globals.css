@@ -40,7 +40,7 @@ body {
 
 body {
   min-height: 100dvh;
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family: var(--font-body), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   color: var(--color-ink);
   background:
     radial-gradient(120% 80% at 100% 0%, oklch(94% 0.04 264) 0%, transparent 55%),
