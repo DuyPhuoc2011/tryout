@@ -1,4 +1,4 @@
-export type LlmRole = 'pm' | 'senior' | 'grader';
+export type LlmRole = 'pm' | 'senior' | 'grader' | 'recruiter';
 export type TaskComplexity = 'chat' | 'review' | 'grade';
 
 export interface LlmMessage {
