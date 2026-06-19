@@ -15,6 +15,13 @@
       "when": 1781599090786,
       "tag": "0001_flaky_ink",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1781849486415,
+      "tag": "0002_open_terror",
+      "breakpoints": true
     }
   ]
 }
