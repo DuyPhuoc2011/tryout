@@ -151,5 +151,28 @@ export const scorecards = pgTable('scorecards', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
+// One row per intake session. Lives outside scenario_runs because intake
+// happens BEFORE a run exists. transcript + profile are LLM-maintained.
+export const candidateProfiles = pgTable('candidate_profiles', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id')
+    .notNull()
+    .references(() => users.id),
+  // Set once the candidate is placed into a run.
+  scenarioRunId: uuid('scenario_run_id').references(() => scenarioRuns.id),
+  experienceLevel: text('experience_level'),
+  languages: jsonb('languages').notNull().default([]),
+  strengths: jsonb('strengths').notNull().default([]),
+  gaps: jsonb('gaps').notNull().default([]),
+  goals: text('goals'),
+  confidence: integer('confidence').notNull().default(0),
+  // Array of { role: 'recruiter' | 'candidate', content: string }.
+  transcript: jsonb('transcript').notNull().default([]),
+  matchedScenarioId: uuid('matched_scenario_id').references(() => scenarios.id),
+  matchedRole: text('matched_role'),
+  matchRationale: text('match_rationale'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;

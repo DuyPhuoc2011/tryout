@@ -31,6 +31,27 @@ export class PmService {
 
     const def = scenario.definition as ScenarioDefinition;
     const c = def.company_context;
+
+    const [profile] = await this.db
+      .select({
+        strengths: schema.candidateProfiles.strengths,
+        gaps: schema.candidateProfiles.gaps,
+        goals: schema.candidateProfiles.goals,
+      })
+      .from(schema.candidateProfiles)
+      .where(eq(schema.candidateProfiles.scenarioRunId, scenarioRunId))
+      .limit(1);
+
+    const recruiterNotes = profile
+      ? [
+          '',
+          "Sam (talent lead) shared notes on this engineer — reflect them subtly in your welcome, do not quote them verbatim:",
+          `- Strengths: ${((profile.strengths as string[]) ?? []).join(', ') || 'unknown'}`,
+          `- Growth areas: ${((profile.gaps as string[]) ?? []).join(', ') || 'unknown'}`,
+          `- Goals: ${profile.goals ?? 'unknown'}`,
+        ].join('\n')
+      : '';
+
     const system = [
       def.agent_prompts.pm_mai.system,
       '',
@@ -40,6 +61,7 @@ export class PmService {
       '',
       `Ticket ${def.ticket.id}: ${def.ticket.title}`,
       def.ticket.body,
+      recruiterNotes,
     ].join('\n');
 
     const result = await this.router.generate({

@@ -11,5 +11,6 @@ import { PollCiProcessor } from '../queue/processors/poll-ci.processor';
   imports: [AuthModule, GitHubModule, QueueModule],
   controllers: [ScenarioRunsController],
   providers: [ScenarioRunsService, PollPrProcessor, PollCiProcessor],
+  exports: [ScenarioRunsService],
 })
 export class ScenarioRunsModule {}

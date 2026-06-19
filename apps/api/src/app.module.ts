@@ -6,6 +6,7 @@ import { ScenarioRunsModule } from './scenario-runs/scenario-runs.module';
 import { ScenariosModule } from './scenarios/scenarios.module';
 import { AgentsModule } from './agents/agents.module';
 import { GradingModule } from './grading/grading.module';
+import { IntakeModule } from './intake/intake.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { GradingModule } from './grading/grading.module';
     ScenarioRunsModule,
     AgentsModule,
     GradingModule,
+    IntakeModule,
   ],
   controllers: [HealthController],
 })

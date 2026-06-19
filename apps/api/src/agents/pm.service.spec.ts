@@ -47,10 +47,11 @@ describe('PmService', () => {
   });
 
   it('generates an intro and persists it as a pm agent message', async () => {
-    // First select().limit() → the run; second → the scenario.
+    // First select().limit() → the run; second → the scenario; third → candidate profile (none).
     mockDb.limit
       .mockResolvedValueOnce([{ id: 'run-1', scenarioId: 'scn-1' }])
-      .mockResolvedValueOnce([{ definition: scenarioDefinition }]);
+      .mockResolvedValueOnce([{ definition: scenarioDefinition }])
+      .mockResolvedValueOnce([]);
     mockRouter.generate.mockResolvedValue({ content: 'Hey, welcome to Lumi!' });
     mockDb.returning.mockResolvedValue([
       { id: 'msg-1', content: 'Hey, welcome to Lumi!', agentRole: 'pm', direction: 'agent' },
@@ -69,5 +70,23 @@ describe('PmService', () => {
     // The message was inserted and returned.
     expect(mockDb.insert).toHaveBeenCalled();
     expect(result.content).toBe('Hey, welcome to Lumi!');
+  });
+
+  it('includes the recruiter notes in the PM system prompt when a profile exists', async () => {
+    // run lookup, scenario lookup, then candidate-profile lookup
+    mockDb.limit
+      .mockResolvedValueOnce([{ id: 'run-1', scenarioId: 'scn-1' }])
+      .mockResolvedValueOnce([{ definition: scenarioDefinition }])
+      .mockResolvedValueOnce([{ strengths: ['api design'], gaps: ['testing'], goals: 'get hired' }]);
+    mockRouter.generate.mockResolvedValue({ content: 'Welcome aboard!' });
+    mockDb.returning.mockResolvedValue([
+      { id: 'm', agentRole: 'pm', direction: 'agent', content: 'Welcome aboard!' },
+    ]);
+
+    await service.generateIntro('run-1');
+
+    const system = mockRouter.generate.mock.calls[0][0].messages[0].content;
+    expect(system).toContain('testing');
+    expect(system).toContain('get hired');
   });
 });

@@ -1035,3 +1035,69 @@
   .loopLabel { font-size: 0.62rem; }
   .scores { grid-template-columns: 1fr; }
 }
+
+.intake {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4, 1rem);
+  max-width: 46rem;
+  margin: 0 auto;
+  width: 100%;
+}
+.intakeThread {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1.25rem;
+  border: 1px solid var(--border, rgba(0, 0, 0, 0.08));
+  border-radius: 16px;
+  background: var(--surface, #fff);
+  max-height: 60vh;
+  overflow-y: auto;
+}
+.intakeBubble {
+  max-width: 80%;
+  padding: 0.75rem 1rem;
+  border-radius: 14px;
+  line-height: 1.5;
+}
+.intakeFromSam {
+  align-self: flex-start;
+  background: var(--surface-2, #f4f4f5);
+}
+.intakeFromYou {
+  align-self: flex-end;
+  background: var(--accent-soft, #e8efff);
+}
+.intakeWho {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  opacity: 0.6;
+  margin-bottom: 0.2rem;
+}
+.intakeTyping {
+  align-self: flex-start;
+  font-size: 0.85rem;
+  opacity: 0.6;
+}
+.intakeReady {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--accent, #2563eb);
+  border-radius: 14px;
+}
+.intakeComposer {
+  display: flex;
+  gap: 0.5rem;
+}
+.intakeInput {
+  flex: 1;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border, rgba(0, 0, 0, 0.12));
+  border-radius: 12px;
+  font: inherit;
+}

@@ -149,46 +149,42 @@ AI-powered technical interview platform. Candidates receive a real GitHub repo, 
 
 ---
 
-## In Progress — Project Catalog → Role → Team Formation 🚧
+## Intake Agent — supersedes the Project Catalog flow ✅
 
-**Design doc:** `docs/superpowers/specs/2026-06-16-project-catalog-design.md` (approved)
+**Design doc:** `docs/superpowers/specs/2026-06-19-intake-agent-design.md` (approved)
+**Plan:** `docs/superpowers/plans/2026-06-19-intake-agent.md`
 
-Replaces the dashboard's single "Start a tryout" action with a guided flow: browse a
-**catalog** of project types → **pick a project** → **pick your role** → **build your team**
-(remaining seats auto-filled with AI teammates, visual roster) → **Start** → `/run`.
-Team is a visual roster only; runtime chat stays PM (Mai) + Senior (Alex).
+The dashboard's catalog browse (pick project → pick role → build team) is **replaced** by a
+free-form intake conversation. A recruiter persona — **Sam, Talent Lead** — interviews the
+candidate, a structured profile is extracted each turn, then a matcher places them into the
+best-fit prebuilt scenario and hands off to the run. Grading integrity preserved: scenarios stay
+prebuilt; only *selection + framing* are personalized at runtime (hybrid). Today the matcher
+always lands on Scenario-01 but the logic is ready to rank N scenarios.
 
-### Done (code complete; typecheck + unit tests green)
-- [x] **DB schema** (`packages/db/src/schema.ts`): `project_type` + `team_role_category` enums;
-      `scenarios.project_type` / `scenarios.available`; new `team_roles` table; `scenario_runs.chosen_role`
-- [x] **Migration generated:** `migrations/0001_flaky_ink.sql` (⚠️ **not yet applied to the live DB**)
-- [x] **Shared types** (`packages/shared/src/catalog.ts`): `ProjectType`, `TeamRoleCategory`,
-      `ScenarioCatalogMeta`, `ScenarioCatalogItem`, `TeamSeatView`, `ScenarioDetailView`,
-      `PROJECT_TYPE_LABELS`; `ScenarioDefinition` extended with `team?` + `catalog?`
-- [x] **Seeds** (`seeds/seed-scenario-01.ts`): scenario-01 backfilled (`projectType=backend_monolith`,
-      `available=true`, `definition.catalog`, `definition.team`); 8 `team_roles` seeded;
-      4 "coming soon" scenarios (microservices/frontend_web/mobile/desktop, `available=false`); all idempotent
-- [x] **API `ScenariosModule`** (`apps/api/src/scenarios/`): `GET /scenarios` (catalog, available-first),
-      `GET /scenarios/:id` (resolved team + `selectableRoles`); registered in `app.module.ts`
-- [x] **API `scenario-runs`**: `CreateRunDto { scenarioId, role }`; `startRun` validates scenario
-      exists + `available` + role is a selectable seat, persists `chosenRole`, uses the chosen scenario
-      (replaced the hardcoded backend-track lookup); `getRun` returns `chosenRole` + resolved team roster (`isYou`)
-- [x] **Web** (`apps/web/src/app/dashboard/`): `CatalogFlow` (catalog→role→team state machine),
-      `ProjectCatalog`, `RolePicker`, `TeamFormation`, `ResumeCard`; `dashboard.module.css` extended;
-      `page.tsx` renders flow (empty) / resume card (active)
-- [x] **Web `lib/api.ts`**: `getScenarios()`, `getScenario(id)`, `startRun(scenarioId, role)`;
-      `ScenarioRunView` gains `chosenRole` + `team`
-- [x] **Web `/run` page**: removed the legacy no-arg `startRun`; no-run state links to `/dashboard`
-- [x] **Tests**: new `test/scenarios.e2e-spec.ts`; new validation cases in `scenario-runs.e2e-spec.ts`;
-      4 e2e specs updated to send the POST body via `test/helpers/start-run.ts`
-- [x] **Verified**: `tsc --noEmit` clean for shared/db/api/web; API unit tests 29/29 pass
+The catalog DB groundwork (migration `0001`, `team_roles`, `scenario_runs.chosen_role`,
+`ScenariosModule`/`GET /scenarios`) is **retained** — the matcher reads `scenarios`/`team_roles`,
+and `chosen_role` now comes from the matcher instead of a user picker. Only the user-facing
+catalog UI and the web `getScenarios()/getScenario()` client calls were removed.
 
-### Pending (blocked — Docker/Postgres engine was down)
-- [ ] Apply migration: `DATABASE_URL=postgres://tryout:tryout@localhost:5432/tryout pnpm --filter @tryout/db migrate`
-- [ ] Reseed: `DATABASE_URL=... pnpm --filter @tryout/db seed`
-- [ ] Run e2e (needs Postgres + `JWT_SECRET=dev`): `pnpm --filter @tryout/api test:e2e`
-- [ ] Manual web smoke of the catalog → role → team → start flow
-- [ ] Commit (verify live port first — see memory `postgres-host-port`, was 5432)
+### Done (applied to live DB; all suites green)
+- [x] **DB:** `candidate_profiles` table (`packages/db/src/schema.ts`); migration `0002_open_terror.sql` **applied**
+- [x] **Shared types** (`packages/shared/src/intake.ts`): `IntakeMessage`, `ProfileSnapshot`,
+      `IntakeSessionView`, `IntakeTurnResult`, `IntakePlacementResult`
+- [x] **LLM:** `'recruiter'` added to `LlmRole`; Sam prompts (`apps/api/src/intake/intake.prompts.ts`)
+- [x] **API `IntakeModule`** (`apps/api/src/intake/`): `IntakeService` (start/resume, turn + profile
+      extraction with tolerant JSON parse, `READY_CONFIDENCE=70` / `TURN_CAP=12`, placement),
+      `ScenarioMatcherService` (scenario + selectable role + LLM rationale), controller, DTO
+- [x] **API endpoints:** `POST /intake`, `GET /intake/:id`, `POST /intake/:id/messages`, `POST /intake/:id/place`
+- [x] **API:** `ScenarioRunsModule` exports `ScenarioRunsService`; `place` reuses `startRun` unchanged
+- [x] **API:** PM intro (`PmService`) injects Sam's recruiter notes (strengths/gaps/goals) into the welcome
+- [x] **Web:** `IntakeChat` component replaces `CatalogFlow`; `ProjectCatalog`/`RolePicker`/`TeamFormation`
+      deleted; `lib/api.ts` gains `startIntake`/`getIntake`/`sendIntakeMessage`/`placeIntake`
+- [x] **Tests:** matcher unit 2, intake unit 6, PM note 1; `intake.e2e-spec.ts` round-trip 5
+- [x] **Verified:** `tsc --noEmit` clean (shared/db/llm/api/web); API unit 38/38, e2e 33/33
+
+### Pending
+- [ ] Manual web smoke: sign in → Sam chat → place → `/run` PM intro reflects stated gaps
+- [ ] Merge `feat/intake-agent` → `master`
 
 ---
 
@@ -220,10 +216,10 @@ Team is a visual roster only; runtime chat stays PM (Mai) + Senior (Alex).
 
 | Metric | Value |
 |--------|-------|
-| Unit tests | 32 (llm 3 + api 29) |
-| E2E tests | 21 |
+| Unit tests | 41 (llm 3 + api 38) |
+| E2E tests | 33 |
 | Template tests | 4 |
-| DB tables | 9 |
-| API endpoints | 9 (health, signup, login, me, scenario-runs ×2, messages ×2, grade, scorecard) |
+| DB tables | 11 |
+| API endpoints | 15 (health, signup, login, me, scenarios ×2, scenario-runs ×2, messages ×2, grade, scorecard, intake ×4) |
 | Packages | 5 (api, web, db, shared, llm) |
 | BullMQ queues | 5 (poll-pr, poll-ci, pm-intro, review, grade) |

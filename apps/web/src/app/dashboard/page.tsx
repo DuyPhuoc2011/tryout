@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { api, type ScenarioRunView } from '@/lib/api';
 import styles from './dashboard.module.css';
-import { CatalogFlow } from './CatalogFlow';
+import { IntakeChat } from './IntakeChat';
 import { ResumeCard } from './ResumeCard';
 
 const RUN_ID_KEY = 'tryout_run_id';
@@ -165,20 +165,20 @@ export default function DashboardPage() {
               {phase === 'active' ? (
                 <>Welcome back{email ? <>, <em>{email.split('@')[0]}</em></> : ''}.</>
               ) : (
-                <>Pick a project to <em>try out</em>.</>
+                <>Let’s find your <em>fit</em>.</>
               )}
             </h1>
             <p className={styles.greetSub}>
               {phase === 'active'
                 ? 'Your tryout is in progress. Pick up where you left off.'
-                : 'Choose a project, claim your seat on the team, and ship a real ticket alongside AI teammates.'}
+                : 'Chat with Sam, our talent lead. A few minutes and you’ll be placed on a real team with a real ticket.'}
             </p>
           </div>
 
           {phase === 'active' && run ? (
             <ResumeCard run={run} />
           ) : (
-            <CatalogFlow onStarted={() => setPhase('active')} />
+            <IntakeChat onPlaced={() => setPhase('active')} />
           )}
         </main>
       )}
