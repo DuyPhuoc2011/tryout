@@ -2,9 +2,10 @@ import type {
   AuthResponse,
   ScenarioCompanyContext,
   ScenarioTicket,
-  ScenarioCatalogItem,
-  ScenarioDetailView,
   TeamSeatView,
+  IntakeSessionView,
+  IntakeTurnResult,
+  IntakePlacementResult,
 } from '@tryout/shared';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
@@ -80,16 +81,41 @@ export const api = {
   login: (email: string, password: string) =>
     post<AuthResponse>('/auth/login', { email, password }),
 
-  getScenarios: async (): Promise<ScenarioCatalogItem[]> => {
-    const res = await fetch(`${API_URL}/scenarios`, { headers: { ...authHeaders() } });
-    if (!res.ok) throw new Error(`Failed to load scenarios (${res.status})`);
-    return res.json() as Promise<ScenarioCatalogItem[]>;
+  startIntake: async (): Promise<IntakeSessionView> => {
+    const res = await fetch(`${API_URL}/intake`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    });
+    if (!res.ok) throw new Error(`Failed to start intake (${res.status})`);
+    return res.json() as Promise<IntakeSessionView>;
   },
 
-  getScenario: async (id: string): Promise<ScenarioDetailView> => {
-    const res = await fetch(`${API_URL}/scenarios/${id}`, { headers: { ...authHeaders() } });
-    if (!res.ok) throw new Error(`Failed to load scenario (${res.status})`);
-    return res.json() as Promise<ScenarioDetailView>;
+  getIntake: async (id: string): Promise<IntakeSessionView> => {
+    const res = await fetch(`${API_URL}/intake/${id}`, { headers: { ...authHeaders() } });
+    if (!res.ok) throw new Error(`Failed to load intake (${res.status})`);
+    return res.json() as Promise<IntakeSessionView>;
+  },
+
+  sendIntakeMessage: async (id: string, content: string): Promise<IntakeTurnResult> => {
+    const res = await fetch(`${API_URL}/intake/${id}/messages`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ content }),
+    });
+    if (!res.ok) throw new Error(`Failed to send message (${res.status})`);
+    return res.json() as Promise<IntakeTurnResult>;
+  },
+
+  placeIntake: async (id: string): Promise<IntakePlacementResult> => {
+    const res = await fetch(`${API_URL}/intake/${id}/place`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    });
+    if (!res.ok) {
+      const message = await res.text();
+      throw new Error(message || `Failed to place (${res.status})`);
+    }
+    return res.json() as Promise<IntakePlacementResult>;
   },
 
   startRun: async (scenarioId: string, role: string): Promise<StartRunResponse> => {
