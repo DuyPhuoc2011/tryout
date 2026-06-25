@@ -83,7 +83,7 @@ export function RunView({ run }: RunViewProps) {
             <CloneCommand repoUrl={run.repo.url} />
             <p className={styles.hint}>
               Clone it, create a branch, implement the ticket, and open a pull request against{' '}
-              <code className={styles.codeInline}>main</code>. We detect it automatically — no need
+              <code className={styles.codeInline}>main</code>. We detect it automatically, no need
               to tell us.
             </p>
           </>

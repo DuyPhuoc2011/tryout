@@ -268,15 +268,13 @@
 /* ───────────── Clone command ───────────── */
 .clone {
   display: flex;
-  align-items: stretch;
+  align-items: flex-start;
   gap: 0.5rem;
   margin: 0.9rem 0 0;
 }
 .cloneCmd {
   flex: 1;
   min-width: 0;
-  display: flex;
-  align-items: center;
   padding: 0.6rem 0.85rem;
   border-radius: 10px;
   border: 1px solid var(--line-strong);
@@ -284,11 +282,15 @@
   color: var(--paper);
   font-family: var(--font-mono), monospace;
   font-size: 0.84rem;
-  overflow-x: auto;
-  white-space: nowrap;
+  line-height: 1.5;
+  /* Wrap the whole command so the repo URL is never hidden behind overflow. */
+  white-space: normal;
+  word-break: break-all;
 }
 .cloneCopy {
   flex: none;
+  width: auto; /* override the global button { width: 100% } reset */
+  align-self: flex-start;
   padding: 0.6rem 1rem;
   border-radius: 10px;
   border: 1px solid var(--line-strong);
@@ -297,6 +299,7 @@
   font: inherit;
   font-size: 0.84rem;
   font-weight: 650;
+  white-space: nowrap;
   cursor: pointer;
   transition: background 160ms var(--ease), border-color 160ms var(--ease);
 }
