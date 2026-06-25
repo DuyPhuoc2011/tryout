@@ -1,9 +1,11 @@
 import {
+  BadGatewayException,
   BadRequestException,
   HttpException,
   HttpStatus,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { eq, desc, and, asc, gte, count } from 'drizzle-orm';
@@ -20,6 +22,8 @@ type TeamRoleRow = typeof schema.teamRoles.$inferSelect;
 
 @Injectable()
 export class ScenarioRunsService {
+  private readonly logger = new Logger(ScenarioRunsService.name);
+
   constructor(
     @Inject(DRIZZLE) private readonly db: Db,
     private readonly github: GitHubService,
@@ -59,6 +63,23 @@ export class ScenarioRunsService {
       throw new BadRequestException(`Role "${dto.role}" cannot be claimed by a candidate.`);
     }
 
+    // Provision the GitHub repo BEFORE persisting the run. If GitHub fails
+    // (bad token, rate limit, outage) we surface a clean error and leave no
+    // orphan run behind — orphans would otherwise count against the daily cost
+    // guard and clutter the candidate's history.
+    let created: Awaited<ReturnType<GitHubService['createRepoFromTemplate']>>;
+    try {
+      created = await this.github.createRepoFromTemplate(userId);
+    } catch (err) {
+      this.logger.error(
+        `Failed to provision repo for user ${userId}: ${err instanceof Error ? err.message : err}`,
+      );
+      throw new BadGatewayException(
+        "We couldn't set up your project repository right now. This is on our side, not your code. Please try again in a moment.",
+      );
+    }
+    const [repoOwner, repoName] = created.fullName.split('/');
+
     const [run] = await this.db
       .insert(schema.scenarioRuns)
       .values({
@@ -69,9 +90,6 @@ export class ScenarioRunsService {
         startedAt: new Date(),
       })
       .returning();
-
-    const created = await this.github.createRepoFromTemplate(userId);
-    const [repoOwner, repoName] = created.fullName.split('/');
 
     await this.db.insert(schema.repos).values({
       scenarioRunId: run.id,

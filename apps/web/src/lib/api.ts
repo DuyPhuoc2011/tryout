@@ -29,6 +29,20 @@ function authHeaders(): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
+/** Pull a human message out of a failed response (NestJS sends `{ message }`). */
+async function errorMessage(res: Response, fallback: string): Promise<string> {
+  const text = await res.text();
+  if (!text) return fallback;
+  try {
+    const body = JSON.parse(text) as { message?: string | string[] };
+    if (Array.isArray(body.message)) return body.message.join(', ');
+    if (typeof body.message === 'string') return body.message;
+  } catch {
+    // not JSON — fall through to the raw text
+  }
+  return text;
+}
+
 export interface StartRunResponse {
   id: string;
   repoUrl: string;
@@ -132,8 +146,7 @@ export const api = {
       headers: { 'Content-Type': 'application/json', ...authHeaders() },
     });
     if (!res.ok) {
-      const message = await res.text();
-      throw new Error(message || `Failed to place (${res.status})`);
+      throw new Error(await errorMessage(res, `Failed to place (${res.status})`));
     }
     return res.json() as Promise<IntakePlacementResult>;
   },
@@ -145,8 +158,7 @@ export const api = {
       body: JSON.stringify({ scenarioId, role }),
     });
     if (!res.ok) {
-      const message = await res.text();
-      throw new Error(message || `Failed to start run (${res.status})`);
+      throw new Error(await errorMessage(res, `Failed to start run (${res.status})`));
     }
     return res.json() as Promise<StartRunResponse>;
   },

@@ -1,5 +1,5 @@
 import { Test } from '@nestjs/testing';
-import { HttpException, HttpStatus } from '@nestjs/common';
+import { BadGatewayException, HttpException, HttpStatus } from '@nestjs/common';
 import { ScenarioRunsService } from './scenario-runs.service';
 import { DRIZZLE } from '../db/db.module';
 import { GitHubService } from '../github/github.service';
@@ -91,5 +91,22 @@ describe('ScenarioRunsService — daily run limit (cost guard)', () => {
     expect(res.id).toBe('run-1');
     expect(mockGitHub.createRepoFromTemplate).toHaveBeenCalledTimes(1);
     expect(mockQueue.enqueuePmIntro).toHaveBeenCalledTimes(1);
+  });
+
+  it('throws 502 and leaves no orphan run when GitHub repo creation fails', async () => {
+    mockDb.limit
+      .mockResolvedValueOnce([availableScenario]) // scenario lookup
+      .mockResolvedValueOnce([{ value: 0 }]) // 24h run count
+      .mockResolvedValueOnce([{ key: 'backend_engineer', selectableByCandidate: true }]); // role
+    mockGitHub.createRepoFromTemplate.mockRejectedValueOnce(new Error('Bad credentials'));
+
+    await expect(
+      service.startRun('user-1', { scenarioId: 'scn-1', role: 'backend_engineer' }),
+    ).rejects.toBeInstanceOf(BadGatewayException);
+
+    // No run row was ever inserted (repo is provisioned before the insert),
+    // so a failed placement cannot orphan a run or burn the daily cost guard.
+    expect(mockDb.returning).not.toHaveBeenCalled();
+    expect(mockQueue.enqueuePmIntro).not.toHaveBeenCalled();
   });
 });
