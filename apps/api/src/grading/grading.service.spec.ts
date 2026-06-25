@@ -89,6 +89,31 @@ describe('GradingService', () => {
     });
   });
 
+  describe('getPublicScorecard', () => {
+    it('returns the scorecard with scenario title, no auth/owner check', async () => {
+      mockDb.orderBy.mockReturnValueOnce(mockDb); // chain orderBy -> limit
+      mockDb.limit.mockResolvedValueOnce([
+        {
+          technicalScore: 82,
+          professionalScore: 90,
+          overallFeedback: 'Strong first ticket.',
+          scenarioTitle: 'Add the ability to archive tasks',
+        },
+      ]);
+
+      const res = await service.getPublicScorecard('run-1');
+
+      expect(res.scenarioTitle).toBe('Add the ability to archive tasks');
+      expect(res.technicalScore).toBe(82);
+    });
+
+    it('throws NotFound when no scorecard exists for the link', async () => {
+      mockDb.orderBy.mockReturnValueOnce(mockDb); // chain orderBy -> limit
+      mockDb.limit.mockResolvedValueOnce([]);
+      await expect(service.getPublicScorecard('bad-id')).rejects.toBeInstanceOf(NotFoundException);
+    });
+  });
+
   describe('gradeRun', () => {
     it('grades the run: persists a scorecard and completes the run', async () => {
       // run, scenario (two .limit loads)

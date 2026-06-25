@@ -30,6 +30,7 @@ export default function RunPage() {
   const [grading, setGrading] = useState(false);
   const [runId, setRunId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     const stored = window.localStorage.getItem(RUN_ID_KEY);
@@ -95,6 +96,14 @@ export default function RunPage() {
     );
   }
 
+  async function onCopyShare() {
+    if (!run) return;
+    const url = `${window.location.origin}/s/${run.id}`;
+    await navigator.clipboard.writeText(url);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
   async function onGrade() {
     if (!run) return;
     setGrading(true);
@@ -116,7 +125,17 @@ export default function RunPage() {
         <RunView run={run} />
 
         {scorecard ? (
-          <ScorecardView scorecard={scorecard} />
+          <>
+            <ScorecardView scorecard={scorecard} />
+            <div className={styles.gradeBar}>
+              <button type="button" className={styles.btnGhost} onClick={onCopyShare}>
+                {copied ? 'Link copied ✓' : 'Copy share link'}
+              </button>
+              <p className={styles.gradeNote}>
+                Send this to a recruiter. They see your scorecard, no login needed.
+              </p>
+            </div>
+          </>
         ) : run.status === 'grading' ? (
           <div className={styles.gradeBar}>
             <span className={styles.spinner} role="status" aria-label="Grading in progress" />

@@ -75,6 +75,10 @@ export interface ScorecardView {
   createdAt: string;
 }
 
+export interface PublicScorecardView extends ScorecardView {
+  scenarioTitle: string;
+}
+
 export const api = {
   signup: (email: string, password: string) =>
     post<AuthResponse>('/auth/signup', { email, password }),
@@ -103,6 +107,22 @@ export const api = {
       body: JSON.stringify({ content }),
     });
     if (!res.ok) throw new Error(`Failed to send message (${res.status})`);
+    return res.json() as Promise<IntakeTurnResult>;
+  },
+
+  uploadCv: async (id: string, file: File): Promise<IntakeTurnResult> => {
+    const form = new FormData();
+    form.append('file', file);
+    // No Content-Type header: the browser sets the multipart boundary.
+    const res = await fetch(`${API_URL}/intake/${id}/cv`, {
+      method: 'POST',
+      headers: { ...authHeaders() },
+      body: form,
+    });
+    if (!res.ok) {
+      const message = await res.text();
+      throw new Error(message || `Failed to upload CV (${res.status})`);
+    }
     return res.json() as Promise<IntakeTurnResult>;
   },
 
@@ -177,5 +197,13 @@ export const api = {
     if (res.status === 404) return null;
     if (!res.ok) throw new Error(`Failed to load scorecard (${res.status})`);
     return res.json() as Promise<ScorecardView>;
+  },
+
+  // Public, no auth — used by the shareable scorecard page.
+  getPublicScorecard: async (runId: string): Promise<PublicScorecardView | null> => {
+    const res = await fetch(`${API_URL}/share/${runId}/scorecard`);
+    if (res.status === 404) return null;
+    if (!res.ok) throw new Error(`Failed to load scorecard (${res.status})`);
+    return res.json() as Promise<PublicScorecardView>;
   },
 };

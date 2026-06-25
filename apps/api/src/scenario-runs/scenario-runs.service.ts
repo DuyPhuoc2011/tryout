@@ -1,10 +1,12 @@
 import {
   BadRequestException,
+  HttpException,
+  HttpStatus,
   Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { eq, desc, and, asc } from 'drizzle-orm';
+import { eq, desc, and, asc, gte, count } from 'drizzle-orm';
 import type { Db } from '@tryout/db';
 import { schema } from '@tryout/db';
 import type { ScenarioDefinition, TeamSeatView } from '@tryout/shared';
@@ -40,6 +42,8 @@ export class ScenarioRunsService {
     if (!scenario.available) {
       throw new BadRequestException('This scenario is not available to start yet.');
     }
+
+    await this.enforceDailyRunLimit(userId);
 
     const def = scenario.definition as ScenarioDefinition;
     const teamKeys = def.team ?? [];
@@ -85,6 +89,29 @@ export class ScenarioRunsService {
     );
 
     return { id: run.id, repoUrl: created.htmlUrl, status: run.status };
+  }
+
+  // Cost guard. Each run fans out into several LLM calls and a real GitHub repo,
+  // so a public free tier needs a ceiling per user. ponytail: rolling 24h count,
+  // no per-account billing. Raise DAILY_RUN_LIMIT or add tiers when monetizing.
+  private async enforceDailyRunLimit(userId: string): Promise<void> {
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const [{ value }] = await this.db
+      .select({ value: count() })
+      .from(schema.scenarioRuns)
+      .where(
+        and(
+          eq(schema.scenarioRuns.userId, userId),
+          gte(schema.scenarioRuns.createdAt, since),
+        ),
+      )
+      .limit(1);
+    if (value >= env.dailyRunLimit) {
+      throw new HttpException(
+        `Daily limit reached: you can start ${env.dailyRunLimit} tryouts per day. Try again tomorrow.`,
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
   }
 
   async getRun(runId: string, userId: string) {

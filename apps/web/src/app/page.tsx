@@ -22,7 +22,7 @@ export default function Home() {
               Log in
             </Link>
             <Link href="/signup" className={styles.btnPrimary}>
-              Start a tryout <span className={styles.arrow}>→</span>
+              Start a free tryout <span className={styles.arrow}>→</span>
             </Link>
           </div>
         </nav>
@@ -47,7 +47,7 @@ export default function Home() {
             </p>
             <div className={`${styles.heroCtas} ${styles.reveal} ${styles.d4}`}>
               <Link href="/signup" className={styles.btnPrimary}>
-                Start a tryout <span className={styles.arrow}>→</span>
+                Start a free tryout <span className={styles.arrow}>→</span>
               </Link>
               <Link href="/login" className={styles.btnGhost}>
                 I already have an account
@@ -242,7 +242,7 @@ export default function Home() {
             is watching the work, not the keywords.
           </p>
           <Link href="/signup" className={styles.btnPrimary}>
-            Start a tryout <span className={styles.arrow}>→</span>
+            Start a free tryout <span className={styles.arrow}>→</span>
           </Link>
         </section>
 

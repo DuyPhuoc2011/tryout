@@ -66,6 +66,31 @@ export class GradingService {
     return scorecard;
   }
 
+  // Public, unauthenticated read for a shareable scorecard link. The run id is a
+  // random UUID and acts as the capability token; the scorecard carries no PII
+  // (scores + feedback only). ponytail: UUID-as-token. Add an explicit opt-in
+  // share flag if a candidate ever needs to revoke a shared link.
+  async getPublicScorecard(runId: string) {
+    const [row] = await this.db
+      .select({
+        technicalScore: schema.scorecards.technicalScore,
+        technicalFeedback: schema.scorecards.technicalFeedback,
+        professionalScore: schema.scorecards.professionalScore,
+        professionalFeedback: schema.scorecards.professionalFeedback,
+        overallFeedback: schema.scorecards.overallFeedback,
+        createdAt: schema.scorecards.createdAt,
+        scenarioTitle: schema.scenarios.title,
+      })
+      .from(schema.scorecards)
+      .innerJoin(schema.scenarioRuns, eq(schema.scorecards.scenarioRunId, schema.scenarioRuns.id))
+      .innerJoin(schema.scenarios, eq(schema.scenarioRuns.scenarioId, schema.scenarios.id))
+      .where(eq(schema.scorecards.scenarioRunId, runId))
+      .orderBy(desc(schema.scorecards.createdAt))
+      .limit(1);
+    if (!row) throw new NotFoundException('No scorecard for this link.');
+    return row;
+  }
+
   async gradeRun(scenarioRunId: string): Promise<void> {
     const [run] = await this.db
       .select()
