@@ -265,6 +265,99 @@
   border: 1.5px solid var(--accent-bright);
 }
 
+/* ───────────── Clone command ───────────── */
+.clone {
+  display: flex;
+  align-items: stretch;
+  gap: 0.5rem;
+  margin: 0.9rem 0 0;
+}
+.cloneCmd {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  padding: 0.6rem 0.85rem;
+  border-radius: 10px;
+  border: 1px solid var(--line-strong);
+  background: oklch(11% 0.025 274 / 0.6);
+  color: var(--paper);
+  font-family: var(--font-mono), monospace;
+  font-size: 0.84rem;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+.cloneCopy {
+  flex: none;
+  padding: 0.6rem 1rem;
+  border-radius: 10px;
+  border: 1px solid var(--line-strong);
+  background: oklch(100% 0 0 / 0.04);
+  color: var(--paper);
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 650;
+  cursor: pointer;
+  transition: background 160ms var(--ease), border-color 160ms var(--ease);
+}
+.cloneCopy:hover { background: oklch(100% 0 0 / 0.09); border-color: var(--paper-faint); }
+.codeInline {
+  font-family: var(--font-mono), monospace;
+  font-size: 0.86em;
+  padding: 0.05em 0.35em;
+  border-radius: 5px;
+  background: oklch(100% 0 0 / 0.07);
+  color: var(--paper);
+}
+
+/* ───────────── Progress timeline ───────────── */
+.timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0;
+}
+.tlStep {
+  position: relative;
+  display: flex;
+  gap: 0.85rem;
+  padding: 0 0 1.1rem;
+}
+/* connector line between dots */
+.tlStep:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  left: 6px;
+  top: 1.1rem;
+  bottom: 0;
+  width: 2px;
+  background: var(--line-strong);
+}
+.tlDot {
+  position: relative;
+  z-index: 1;
+  flex: none;
+  width: 14px;
+  height: 14px;
+  margin-top: 0.15rem;
+  border-radius: 50%;
+  border: 2px solid var(--paper-faint);
+  background: var(--ink-deep);
+}
+.tlBody { display: flex; flex-direction: column; gap: 0.15rem; }
+.tlLabel { font-weight: 600; font-size: 0.95rem; color: var(--paper); line-height: 1.2; }
+.tlHint { font-size: 0.85rem; color: var(--paper-faint); line-height: 1.45; }
+
+.tl_done .tlDot { border-color: var(--ok); background: var(--ok); }
+.tl_done .tlLabel { color: var(--paper-dim); }
+.tl_active .tlDot { border-color: var(--signal); background: var(--signal); animation: pulse 1.8s var(--ease) infinite; }
+.tl_active .tlLabel { color: var(--paper); }
+.tl_fail .tlDot { border-color: var(--bad); background: var(--bad); }
+.tl_fail .tlLabel { color: var(--paper); }
+.tl_todo .tlDot { border-color: var(--line-strong); background: transparent; }
+.tl_todo .tlLabel { color: var(--paper-faint); }
+
 /* ───────────── Buttons ───────────── */
 .btnPrimary,
 .btnGhost {
@@ -532,7 +625,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .spinner, .statusActive .statusDot { animation: none; }
+  .spinner, .statusActive .statusDot, .tl_active .tlDot { animation: none; }
 }
 
 @media (max-width: 540px) {

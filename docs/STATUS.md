@@ -1,6 +1,6 @@
 # Tryout — Project Status
 
-_Last updated: 2026-06-16_
+_Last updated: 2026-06-25_
 
 ## Overview
 
@@ -19,7 +19,8 @@ AI-powered technical interview platform. Candidates receive a real GitHub repo, 
 | M2 | The Visible Loop | ✅ Complete |
 | M3 | Conversations | ✅ Complete |
 | M4 | Grading | ✅ Complete |
-| M5 | Polish | 🔲 Pending |
+| M5 | Polish | 🟡 In progress (activation guidance) |
+| — | Phase 1 publish prep | 🟡 In progress (share / cost guard / metrics done) |
 
 ---
 
@@ -143,9 +144,33 @@ AI-powered technical interview platform. Candidates receive a real GitHub repo, 
 
 ---
 
-## M5 — Polish 🔲
+## M5 — Polish 🟡
 
-**Goal:** Tighten UX, add retry/next, soft deadline, the optional scope-change event.
+**Goal:** Tighten UX (read `frontend-design` first), add retry/next, handle the **soft** deadline (surface time, never hard-fail — spec §217), enable the optional scope change (off by default for the first run).
+
+| Part | Status |
+|------|--------|
+| Tighten UX → activation guidance (clone command + live status timeline) | 🟡 In progress |
+| retry / next (flow step 10) | 🔲 |
+| soft deadline (surface time, no hard-fail) | 🔲 — `deadlineAt` in schema, unused |
+| optional scope change | 🔲 |
+
+---
+
+## Phase 1 — Publish prep 🟡
+
+**Goal:** Publish Tryout free to acquire candidates; protect against token bleed; seed Phase-2 (institutions) traction data. See memory `publish-two-phase-plan`.
+
+### Done (`feat/phase1-publish`, commit `93b8512`)
+- [x] **Shareable scorecard:** public `GET /share/:runId/scorecard` (run UUID = capability token, no PII) + web page `/s/[id]` with a "run your own free" growth CTA; copy-link button on `/run`
+- [x] **Cost guard:** `DAILY_RUN_LIMIT` (default 3) enforced as a rolling-24h count in `ScenarioRunsService`; returns 429 before any LLM/GitHub spend
+- [x] **Landing:** "free" added to every CTA
+- [x] **Usage metrics:** read-only `GET /admin/metrics` gated by `METRICS_TOKEN`; aggregates existing tables (totals, completion, avg scores, runs-by-scenario, skill levels) — no new event pipeline
+- [x] Tests: +7 (share ×2, cost-guard ×2, metrics ×3); full API unit suite 48/48
+
+### Pending
+- [ ] Set `METRICS_TOKEN` + `DAILY_RUN_LIMIT` in prod env before publish
+- [ ] Surface the 429 limit message in the web UI (currently raw)
 
 ---
 
@@ -184,7 +209,7 @@ catalog UI and the web `getScenarios()/getScenario()` client calls were removed.
 
 ### Pending
 - [ ] Manual web smoke: sign in → Sam chat → place → `/run` PM intro reflects stated gaps
-- [ ] Merge `feat/intake-agent` → `master`
+- [x] Merge `feat/intake-agent` → `master` (commit `e2e283e`)
 
 ---
 
@@ -216,10 +241,10 @@ catalog UI and the web `getScenarios()/getScenario()` client calls were removed.
 
 | Metric | Value |
 |--------|-------|
-| Unit tests | 41 (llm 3 + api 38) |
+| Unit tests | 51 (llm 3 + api 48) |
 | E2E tests | 33 |
 | Template tests | 4 |
 | DB tables | 11 |
-| API endpoints | 15 (health, signup, login, me, scenarios ×2, scenario-runs ×2, messages ×2, grade, scorecard, intake ×4) |
+| API endpoints | 17 (health, signup, login, me, scenarios ×2, scenario-runs ×2, messages ×2, grade, scorecard, intake ×4, share/scorecard, admin/metrics) |
 | Packages | 5 (api, web, db, shared, llm) |
 | BullMQ queues | 5 (poll-pr, poll-ci, pm-intro, review, grade) |

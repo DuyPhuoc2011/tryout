@@ -1,5 +1,7 @@
 import type { ScenarioRunView } from '@/lib/api';
 import styles from '@/app/run/run.module.css';
+import { CloneCommand } from './CloneCommand';
+import { RunTimeline } from './RunTimeline';
 
 interface RunViewProps {
   run: ScenarioRunView;
@@ -42,6 +44,8 @@ export function RunView({ run }: RunViewProps) {
         </span>
       </div>
 
+      <RunTimeline run={run} />
+
       {run.scenario && (
         <section className={styles.card} aria-labelledby="ticket-heading">
           <p className={styles.ticketId}>{run.scenario.ticket.id}</p>
@@ -70,18 +74,22 @@ export function RunView({ run }: RunViewProps) {
           Your repository
         </p>
         {run.repo ? (
-          <p className={styles.prose}>
-            <a className={styles.link} href={run.repo.url} target="_blank" rel="noreferrer">
-              Open your repo on GitHub →
-            </a>
-          </p>
+          <>
+            <p className={styles.prose}>
+              <a className={styles.link} href={run.repo.url} target="_blank" rel="noreferrer">
+                Open your repo on GitHub →
+              </a>
+            </p>
+            <CloneCommand repoUrl={run.repo.url} />
+            <p className={styles.hint}>
+              Clone it, create a branch, implement the ticket, and open a pull request against{' '}
+              <code className={styles.codeInline}>main</code>. We detect it automatically — no need
+              to tell us.
+            </p>
+          </>
         ) : (
           <p className={`${styles.prose} ${styles.muted}`}>Provisioning your repo…</p>
         )}
-        <p className={styles.hint}>
-          Clone it, implement the ticket, and open a pull request. We&apos;ll detect it
-          automatically.
-        </p>
       </section>
 
       <section className={styles.card} aria-labelledby="review-heading">
