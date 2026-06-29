@@ -51,13 +51,22 @@ trust). The resolution:
 **Agent code has deterministic seams even though the LLM does not. Grade the engineering
 *around* the model, with the LLM mocked/fixed — never the model's output quality.**
 
-The hidden suite injects a fake LLM client with recorded/scripted responses. Tests assert:
-request correctness, error handling, tool wiring, guard behavior, retrieval correctness,
-control-flow termination. All deterministic. This reuses the existing `grading.service`
-(reads `rubric` + `ground_truth` from scenario JSON, grades behavior) almost unchanged.
+The pytest suite injects a fake LLM client with recorded/scripted responses. Tests assert:
+request correctness, error handling, tool wiring, guard behavior — all deterministic.
 
-**Reference-gate still applies** (strategy doc §"trust enough to sell"): each hidden suite
-MUST pass a known-good reference solution before going live. Never ship a hidden suite blind.
+**Important — how grading actually works in this engine (corrected after reading the code):**
+`grading.service` does NOT run the test suite. The flow is:
+1. The candidate repo's **own CI** (GitHub Actions) runs its pytest suite → `poll-ci`
+   records `ciStatus` = `success`/`failure`.
+2. `grading.service.gradeRun()` makes an **LLM grader call** — fed the rubric, ground_truth,
+   the transcript, the review thread, the PR diff, and that `ciStatus` string — and the LLM
+   returns the scores. `def.grading.hidden_acceptance_suite` is referenced but read by no code.
+
+So the mock-LLM trick buys a **deterministic CI signal**, not a deterministic *grade*: the
+final score is still an anchored LLM judgment. That is acceptable for this slice (decision
+2026-06-29). A true suite-run grader (score the technical dimension from real pass/fail
+counts) is deferred. **Reference-gate still applies**: each suite must pass a known-good
+reference solution (green CI) before going live.
 
 ## Scope — this slice
 
@@ -81,27 +90,36 @@ Student stack-choice at intake is a Phase-2 concern; this slice authors Python o
 
 ## Architecture — reused vs new
 
-The engine is reused as-is. Only scenario content + one behavioral change are new.
+Most of the engine is reused. Two engine changes are required (discovered when reading the
+code — the first draft under-counted these). Everything else is new content.
 
 **Reused unchanged:**
 - Intake "Sam" (stack/level chat) — `IntakeModule`
 - `scenarioRuns` orchestration — `scenario-runs.service.ts`
 - PM + senior persona engine — `agents/pm.service.ts`, `agents/senior-review.service.ts`
-- GitHub repo loop — `github.service.ts` (template → candidate repo)
-- PR → CI → review pipeline — `queue/processors/poll-pr`, `poll-ci`, `review` processor
-- Judge — `grading.service` (reads `rubric` + `ground_truth` from scenario JSON)
+- Judge — `grading.service` (LLM grader; see grading section)
 - Scorecard
 
-**New:**
+**Engine changes (required):**
+- **E1 — Per-scenario template repo.** `github.service.createRepoFromTemplate(userId)` uses a
+  single `GITHUB_TEMPLATE_REPO` env var and ignores the scenario. Thread the scenario's
+  `repo.template_ref` through so the Python template provisions for these scenarios while the
+  NestJS one still works for scenario-01.
+- **E2 — Repeatable review loop (retry-to-learn).** Today `poll-pr` inserts one submission on
+  the first PR and stops; `poll-ci` polls only the first `headSha`. Fixes pushed after a
+  review are never re-detected. After a review posts, re-arm polling for the next commit
+  (new `headSha`) → new submission → new review. This is what makes "fix and resubmit" real.
+
+**New content:**
 1. **2 scenario definitions** (parts A/D/E/F — stack-agnostic): agent-domain tickets +
-   clarification answer keys + weighted rubrics + PM/senior persona answer keys.
-2. **1 Python template repo** (part B): agent skeleton — compiles, CI green on clean
-   checkout, pytest wired, a fake-LLM-client test helper provided to the student.
-3. **2 hidden suites** (part C, Python/pytest): LLM mocked, assert the engineering. Each
-   reference-gated against a known-good solution.
-4. **Retry-to-learn flip** (the one behavioral change): review verdict is no longer
-   terminal. Student fixes + resubmits; re-review runs; scorecard tracks improvement
-   across attempts.
+   clarification answer keys + weighted rubrics + PM/senior persona answer keys, seeded into
+   a new `ai-agents` track.
+2. **1 Python template repo** (part B): agent skeleton — installs, CI green on clean checkout,
+   pytest wired, a fake-LLM-client test helper provided to the student. Must exist as a real
+   GitHub template repo for `createRepoFromTemplate` to clone.
+3. **Visible acceptance tests (part C)**, Python/pytest, mocking the LLM. (Not separately
+   "hidden-injected" — no such mechanism exists; they ship in the template and drive CI. The
+   reference-gate is: a known-good solution makes them green.)
 
 ## The two scenarios (parts A + C concretely)
 
@@ -109,46 +127,50 @@ The engine is reused as-is. Only scenario content + one behavioral change are ne
 - **Ticket (A):** Implement a function that calls Claude with a structured-output
   requirement and handles timeout + error paths. Ticket is intentionally vague on edge
   cases (teaches asking the clarifying question — the professional signal).
-- **Hidden suite (C):** Inject a fake SDK client. Assert request shape (model, messages,
+- **Acceptance tests (C):** Inject a fake SDK client. Assert request shape (model, messages,
   structured-output config), success parsing, and each error/timeout path.
 
 ### Rung 1 — "Give it a tool"
 - **Ticket (A):** Add a tool — define its schema, wire function-calling, execute the tool,
   return the result to the model loop.
-- **Hidden suite (C):** Feed a fixed `tool_use` response. Assert the tool schema validates,
+- **Acceptance tests (C):** Feed a fixed `tool_use` response. Assert the tool schema validates,
   the tool is invoked with the correct arguments, and the result is returned correctly.
 
 ## Teaching flip — detail
 
-Today: the first submission is forced to `request_changes` and the run is effectively done.
+Reality check (corrected): the run is already **not** auto-terminal — nothing sets it to
+`complete` on `request_changes`; grading only runs when the candidate explicitly requests it.
+The missing piece is purely E2: the review loop is one-shot, so a student's fix is never
+re-reviewed. Once E2 lands, "fix and resubmit" works:
 
-New behavior:
 - Review verdict carries **teaching feedback** (already produced by `senior-review.service`).
-- The run is **not** marked done on `request_changes`. The student fixes and resubmits.
-- Re-review runs on the new PR state; the loop repeats until the student chooses to stop
-  or the hidden suite passes.
-- The scorecard is a **growth artifact** — shows improvement across attempts — not a
-  pass/fail gate.
+- Student pushes a fix → E2 re-arm detects the new commit → new submission → re-review.
+- Loop repeats until the student requests grading (their choice) or CI is green and the
+  senior approves.
+- The scorecard is a **growth artifact**, not a pass/fail gate.
 
-This is a minimal change: the feedback path exists; we stop treating the run as terminal on
-`request_changes`. (`ponytail`: keep it simple — non-terminal verdict + resubmit, no new
-state machine; add attempt-level scoring later if the growth narrative needs it.)
+(`ponytail`: E2 is the whole flip — re-arm the existing poll loop, no new state machine, no
+attempt-level scoring table yet. Add per-attempt scoring later only if the growth narrative
+needs it.)
 
 ## Error handling
 
-- Template repo must compile and pass CI green on clean checkout (part B invariant).
-- Hidden suite must pass the reference solution before going live (reference-gate).
-- Mock-LLM helper failures (e.g. student didn't wire the injectable client) must produce a
-  clear, teaching-oriented failure message, not an opaque stack trace.
+- Template repo must install and pass CI green on clean checkout (part B invariant).
+- Acceptance tests must pass the reference solution (green CI) before going live (reference-gate).
+- The fake-LLM test helper must fail with a clear, teaching-oriented message when the student
+  hasn't wired the injectable client, not an opaque stack trace.
+- E1/E2 must not break scenario-01: the NestJS template still provisions, and a one-shot run
+  (no fixes pushed) still completes exactly as today.
 - GitHub/CI failures reuse the existing graceful-failure path (no orphan runs — already in place).
 
 ## Testing
 
-- **Reference-gate:** each hidden suite runs against the known-good reference and must pass.
-- **Negative gate:** each hidden suite runs against a deliberately-broken reference and must
-  fail (proves the suite actually discriminates — guards against a suite that passes everything).
-- **Engine regression:** existing API unit + e2e suites must stay green (the engine is reused;
-  this slice must not break it).
+- **Reference-gate:** the acceptance tests run against the known-good reference and pass (green CI).
+- **Negative gate:** the acceptance tests run against a deliberately-broken reference and fail
+  (proves the suite discriminates — guards against a suite that passes everything).
+- **E1 regression:** scenario-01 still provisions its NestJS template (env fallback intact).
+- **E2 regression:** a run where no fix is pushed behaves exactly as today (one review, no loop).
+- **Engine regression:** existing API unit + e2e suites stay green.
 
 ## Open decisions
 
