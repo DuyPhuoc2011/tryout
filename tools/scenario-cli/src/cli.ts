@@ -8,18 +8,28 @@ import { publishScenario } from './publish.js';
 import { templateDir, solutionDir } from './paths.js';
 import { listFiles } from './fsutil.js';
 
-function templateReader(id: string): TemplateReader {
-  const root = templateDir(id);
+function dirReader(root: string): TemplateReader {
   return {
     exists: (rel) => fs.existsSync(path.join(root, rel)),
     read: (rel) => fs.readFileSync(path.join(root, rel), 'utf8'),
   };
 }
 
+/** template/ overlaid by solution/ (solution wins) — mirrors what the gate runs. */
+function mergedReader(id: string): TemplateReader {
+  const t = templateDir(id);
+  const s = solutionDir(id);
+  const pick = (rel: string) => (fs.existsSync(path.join(s, rel)) ? path.join(s, rel) : path.join(t, rel));
+  return {
+    exists: (rel) => fs.existsSync(path.join(s, rel)) || fs.existsSync(path.join(t, rel)),
+    read: (rel) => fs.readFileSync(pick(rel), 'utf8'),
+  };
+}
+
 function doValidate(id: string): string[] {
   const m = loadManifest(id); // throws on schema errors
   const solFiles = fs.existsSync(solutionDir(id)) ? listFiles(solutionDir(id)) : [];
-  return validateManifest(m, templateReader(id), solFiles);
+  return validateManifest(m, dirReader(templateDir(id)), mergedReader(id), solFiles);
 }
 
 function doGate(id: string) {

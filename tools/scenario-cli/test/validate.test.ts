@@ -34,24 +34,28 @@ function reader(files: Record<string, string>) {
 
 describe('validateManifest', () => {
   it('passes a well-formed manifest', () => {
-    const problems = validateManifest(base(), reader({ 'f.py': 'aaa X bbb' }), ['f.py']);
+    const r = reader({ 'f.py': 'aaa X bbb' });
+    const problems = validateManifest(base(), r, r, ['f.py']);
     expect(problems).toEqual([]);
   });
 
   it('flags rubric weights that do not sum to ~1 per dimension', () => {
     const m = base();
     m.rubric.technical.criteria = [{ id: 'a', weight: 0.4, description: 'd' }];
-    const problems = validateManifest(m, reader({ 'f.py': 'X' }), ['f.py']);
+    const r = reader({ 'f.py': 'X' });
+    const problems = validateManifest(m, r, r, ['f.py']);
     expect(problems.some((p) => /technical.*sum/i.test(p))).toBe(true);
   });
 
   it('flags a solution file not present in template', () => {
-    const problems = validateManifest(base(), reader({ 'f.py': 'X' }), ['agent/missing.py']);
+    const r = reader({ 'f.py': 'X' });
+    const problems = validateManifest(base(), r, r, ['agent/missing.py']);
     expect(problems.some((p) => /solution.*missing\.py.*template/i.test(p))).toBe(true);
   });
 
-  it('flags a mutation find-string absent from the template file', () => {
-    const problems = validateManifest(base(), reader({ 'f.py': 'no marker here' }), ['f.py']);
+  it('flags a mutation find-string absent from the merged file', () => {
+    const r = reader({ 'f.py': 'no marker here' });
+    const problems = validateManifest(base(), r, r, ['f.py']);
     expect(problems.some((p) => /mutation.*find.*f\.py/i.test(p))).toBe(true);
   });
 });
