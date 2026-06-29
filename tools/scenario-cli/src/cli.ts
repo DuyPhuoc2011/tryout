@@ -97,7 +97,9 @@ async function main() {
   }
 }
 
-main().catch((e) => {
-  console.error(e instanceof Error ? e.message : e);
-  process.exit(1);
-});
+main()
+  .then(() => process.exit(0)) // force-close: seed opens a postgres pool that keeps the loop alive
+  .catch((e) => {
+    console.error(e instanceof Error ? e.message : e);
+    process.exit(1);
+  });
