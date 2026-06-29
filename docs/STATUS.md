@@ -1,6 +1,13 @@
 # Tryout — Project Status
 
-_Last updated: 2026-06-25_
+_Last updated: 2026-06-29_
+
+## Agent-trainer pivot (2026-06-29)
+
+Tryout pivoted to teaching juniors to **build AI agents** (see `docs/superpowers/specs/2026-06-29-agent-trainer-pivot-design.md`). Shipped so far:
+- **Vertical slice (rungs 0–1):** engine E1 (per-scenario `repo.template_ref`) + E2 (repeatable review loop / retry-to-learn), two Python agent scenarios, live GitHub template repos under `tryout-dev`. Verified end-to-end against a live run.
+- **P1 — scenario-authoring CLI (`@tryout/scenario-cli`):** self-contained `scenarios/<id>/` folders (`scenario.json` + `template/` + `solution/`) with `validate / gate / publish / seed / release`. The gate (skeleton-RED + reference-GREEN + mutations-RED) is the enforced trust gate; `release` is fail-closed. The 2 agent scenarios are managed through it. scenario-01 still uses its legacy seed (CLI is stack-agnostic; migration deferred).
+- **Next:** P2 (smarter grader/teammates), P3 (rungs 2–6 curriculum).
 
 ## Overview
 
