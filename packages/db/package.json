@@ -9,6 +9,7 @@
     "generate": "drizzle-kit generate",
     "migrate": "drizzle-kit migrate",
     "seed": "tsx src/seeds/seed-scenario-01.ts",
+    "seed:agents": "tsx src/seeds/seed-agent-scenarios.ts",
     "test": "echo \"no tests\" && exit 0"
   },
   "dependencies": {
