@@ -1,0 +1,54 @@
+{
+  "id": "agent-foundations",
+  "track": "ai-agents",
+  "title": "Wire up the model",
+  "version": 1,
+  "projectType": "backend_monolith",
+  "available": true,
+  "catalog": {
+    "summary": "Your first AI-agent ticket: make a summarizer call the model correctly and handle its failures. Mocked-LLM tests, a real PR, a senior review.",
+    "difficulty": "intro",
+    "tags": ["AI agents", "Python", "Anthropic", "LLM"]
+  },
+  "team": ["product_manager", "senior_engineer", "backend_engineer"],
+  "company_context": {
+    "name": "Brief",
+    "product": "Brief turns long documents into one-line summaries using an AI agent.",
+    "team": "You're a new engineer on the agent team. The codebase is a small Python service.",
+    "user_role": "AI Engineer (new hire, first ticket)"
+  },
+  "repo": { "template_ref": "agent-foundations-py", "default_branch": "main", "ci": "github-actions" },
+  "ticket": {
+    "id": "AGENT-0",
+    "title": "Make the summarizer call the model",
+    "body": "Implement summarize() in agent/model_call.py so it calls our model and returns a one-line summary. It needs to be solid — think about what happens when the model call fails or comes back empty. The acceptance tests describe the behavior; make them pass and open a PR."
+  },
+  "clarifications": [],
+  "agent_prompts": {
+    "pm_mai": { "system": "You are Mai, PM at Brief. Friendly, busy, practical. You assigned AGENT-0 to a new AI engineer. If they ask a clarifying question, answer directly. Do not volunteer implementation detail. Canonical answers when asked: error handling — \"Yes, if the model call throws or returns nothing, raise our SummarizationError, don't leak raw exceptions.\" Output — \"One sentence, trimmed of whitespace.\" Keep replies short and Slack-like." },
+    "senior_alex": { "system": "You are Alex, a senior engineer at Brief. Clear, professional, slightly terse async English. CHAT: nudge, point at the right file, don't hand over the solution. PR REVIEW: specific comments tied to the code. Request changes at least once on the first submission. Catch: raw exceptions not wrapped, missing empty-content handling, wrong request shape, no tests. Approve once correct and clean." }
+  },
+  "ground_truth": {
+    "solution_notes": "summarize() calls client.create_message with model claude-haiku-4-5, max_tokens 256, a single user message containing the text; returns response.content[0].text.strip(); wraps any client exception in SummarizationError; raises SummarizationError when content is empty.",
+    "red_flags": ["raw exception leaks instead of SummarizationError", "no empty-content handling", "wrong model or message shape", "no PR description"]
+  },
+  "rubric": {
+    "technical": { "weight": 0.5, "criteria": [
+      { "id": "acceptance_tests_pass", "weight": 0.5, "description": "CI green — the mocked-LLM acceptance suite passes." },
+      { "id": "error_handling", "weight": 0.3, "description": "Client failures and empty content both raise SummarizationError." },
+      { "id": "request_shape", "weight": 0.2, "description": "Correct model, max_tokens, and single user message containing the text." }
+    ] },
+    "professional": { "weight": 0.5, "criteria": [
+      { "id": "surfaced_ambiguity", "weight": 0.4, "description": "Asked the PM about error/empty behavior before implementing." },
+      { "id": "pr_description", "weight": 0.3, "description": "PR explains what changed and why; states assumptions." },
+      { "id": "response_to_review", "weight": 0.3, "description": "Incorporated senior feedback constructively across resubmits." }
+    ] }
+  },
+  "gate": {
+    "runtime": "python3.11",
+    "test_cmd": "pip install -e \".[dev]\" -q && pytest -q",
+    "mutations": [
+      { "file": "agent/model_call.py", "find": "f\"Summarize in one sentence:\\n\\n{text}\"", "replace": "\"Summarize.\"", "expect_fail": "request-shape test (document text dropped from prompt)" }
+    ]
+  }
+}
