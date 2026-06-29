@@ -79,28 +79,47 @@ describe('PollPrProcessor', () => {
     expect(mockQueueService.enqueuePollCi).not.toHaveBeenCalled();
   });
 
-  it('creates a Submission and enqueues poll-ci when a PR is found', async () => {
+  it('creates a submission and re-arms when a new head sha appears', async () => {
     mockGitHubService.listOpenPullRequests.mockResolvedValue([
-      { number: 7, headSha: 'sha-abc', htmlUrl: 'https://github.com/o/r/pull/7', title: 'feat: archive' },
+      { number: 7, headSha: 'sha-new', htmlUrl: 'https://github.com/o/r/pull/7', title: 'feat: x' },
     ]);
+    mockDb.limit.mockResolvedValueOnce([]); // dedupe SELECT: no submission for sha-new
     mockDb.returning.mockResolvedValue([{ id: 'sub-1' }]);
 
     const job = {
-      data: {
-        scenarioRunId: 'run-1',
-        repoOwner: 'test-owner',
-        repoName: 'lumi-tasks-abc',
-        attemptCount: 1,
-      },
+      data: { scenarioRunId: 'run-1', repoOwner: 'o', repoName: 'r', attemptCount: 0 },
     } as any;
 
     await processor.process(job);
 
     expect(mockDb.insert).toHaveBeenCalled();
     expect(mockQueueService.enqueuePollCi).toHaveBeenCalledWith(
-      expect.objectContaining({ submissionId: 'sub-1', prNumber: 7, headSha: 'sha-abc' }),
+      expect.objectContaining({ submissionId: 'sub-1', prNumber: 7, headSha: 'sha-new' }),
       expect.any(Number),
     );
-    expect(mockQueueService.enqueuePollPr).not.toHaveBeenCalled();
+    expect(mockQueueService.enqueuePollPr).toHaveBeenCalledWith(
+      expect.objectContaining({ scenarioRunId: 'run-1', attemptCount: 1 }),
+      expect.any(Number),
+    );
+  });
+
+  it('does NOT create a duplicate submission for a head sha already seen, but still re-arms', async () => {
+    mockGitHubService.listOpenPullRequests.mockResolvedValue([
+      { number: 7, headSha: 'sha-seen', htmlUrl: 'https://github.com/o/r/pull/7', title: 't' },
+    ]);
+    mockDb.limit.mockResolvedValueOnce([{ id: 'sub-existing' }]); // dedupe SELECT finds it
+
+    const job = {
+      data: { scenarioRunId: 'run-1', repoOwner: 'o', repoName: 'r', attemptCount: 0 },
+    } as any;
+
+    await processor.process(job);
+
+    expect(mockDb.insert).not.toHaveBeenCalled();
+    expect(mockQueueService.enqueuePollCi).not.toHaveBeenCalled();
+    expect(mockQueueService.enqueuePollPr).toHaveBeenCalledWith(
+      expect.objectContaining({ attemptCount: 1 }),
+      expect.any(Number),
+    );
   });
 });
