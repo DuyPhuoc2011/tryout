@@ -35,11 +35,14 @@ export class GitHubService {
     this.octokit = new Octokit({ auth: token });
   }
 
-  async createRepoFromTemplate(userId: string): Promise<CreatedRepo> {
-    const repoName = `lumi-tasks-${userId.slice(0, 8)}-${Date.now()}`;
+  async createRepoFromTemplate(
+    userId: string,
+    templateRepo: string = this.templateRepo,
+  ): Promise<CreatedRepo> {
+    const repoName = `${templateRepo}-${userId.slice(0, 8)}-${Date.now()}`;
     const response = await this.octokit.rest.repos.createUsingTemplate({
       template_owner: this.owner,
-      template_repo: this.templateRepo,
+      template_repo: templateRepo,
       owner: this.owner,
       name: repoName,
       private: true,

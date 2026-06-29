@@ -57,6 +57,33 @@ describe('GitHubService', () => {
       expect(result.htmlUrl).toBe('https://github.com/test-owner/lumi-tasks-abc123');
       expect(result.fullName).toBe('test-owner/lumi-tasks-abc123');
     });
+
+    it('uses the provided template repo when one is passed', async () => {
+      mockOctokit.rest.repos.createUsingTemplate.mockResolvedValue({
+        data: { html_url: 'u', full_name: 'test-owner/agent-foundations-py-x' },
+      });
+
+      await service.createRepoFromTemplate('user-id-abc123', 'agent-foundations-py');
+
+      expect(mockOctokit.rest.repos.createUsingTemplate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          template_repo: 'agent-foundations-py',
+          name: expect.stringContaining('agent-foundations-py-'),
+        }),
+      );
+    });
+
+    it('falls back to the env template repo when none is passed', async () => {
+      mockOctokit.rest.repos.createUsingTemplate.mockResolvedValue({
+        data: { html_url: 'u', full_name: 'test-owner/lumi-tasks-api-x' },
+      });
+
+      await service.createRepoFromTemplate('user-id-abc123');
+
+      expect(mockOctokit.rest.repos.createUsingTemplate).toHaveBeenCalledWith(
+        expect.objectContaining({ template_repo: 'lumi-tasks-api' }),
+      );
+    });
   });
 
   describe('listOpenPullRequests', () => {
