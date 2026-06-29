@@ -22,6 +22,13 @@
       "when": 1781849486415,
       "tag": "0002_open_terror",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1782702565275,
+      "tag": "0003_chubby_mercury",
+      "breakpoints": true
     }
   ]
 }

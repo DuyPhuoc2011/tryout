@@ -122,6 +122,7 @@ export const submissions = pgTable('submissions', {
     .notNull()
     .references(() => scenarioRuns.id),
   prUrl: text('pr_url').notNull(),
+  headSha: text('head_sha'),
   ciStatus: text('ci_status'),
   ciResults: jsonb('ci_results'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
