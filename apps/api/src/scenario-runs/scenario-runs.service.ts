@@ -69,7 +69,7 @@ export class ScenarioRunsService {
     // guard and clutter the candidate's history.
     let created: Awaited<ReturnType<GitHubService['createRepoFromTemplate']>>;
     try {
-      created = await this.github.createRepoFromTemplate(userId);
+      created = await this.github.createRepoFromTemplate(userId, def.repo?.template_ref);
     } catch (err) {
       this.logger.error(
         `Failed to provision repo for user ${userId}: ${err instanceof Error ? err.message : err}`,

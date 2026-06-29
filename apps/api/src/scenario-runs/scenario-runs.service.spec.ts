@@ -93,6 +93,27 @@ describe('ScenarioRunsService — daily run limit (cost guard)', () => {
     expect(mockQueue.enqueuePmIntro).toHaveBeenCalledTimes(1);
   });
 
+  it('provisions from the scenario template_ref when present', async () => {
+    const scenarioWithRepo = {
+      id: 'scn-1',
+      available: true,
+      definition: { title: 't', team: ['backend_engineer'], repo: { template_ref: 'agent-foundations-py' } },
+    };
+    mockDb.limit
+      .mockResolvedValueOnce([scenarioWithRepo]) // scenario lookup
+      .mockResolvedValueOnce([{ value: 0 }]) // 24h run count
+      .mockResolvedValueOnce([{ key: 'backend_engineer', selectableByCandidate: true }]); // role
+    mockDb.returning.mockResolvedValueOnce([{ id: 'run-1', status: 'onboarding' }]);
+    mockGitHub.createRepoFromTemplate.mockResolvedValueOnce({
+      fullName: 'owner/repo',
+      htmlUrl: 'https://github.com/owner/repo',
+    });
+
+    await service.startRun('user-1', { scenarioId: 'scn-1', role: 'backend_engineer' });
+
+    expect(mockGitHub.createRepoFromTemplate).toHaveBeenCalledWith('user-1', 'agent-foundations-py');
+  });
+
   it('throws 502 and leaves no orphan run when GitHub repo creation fails', async () => {
     mockDb.limit
       .mockResolvedValueOnce([availableScenario]) // scenario lookup
