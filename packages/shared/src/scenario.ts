@@ -11,6 +11,12 @@ export interface ScenarioTicket {
   body: string;
 }
 
+export interface ScenarioRepo {
+  template_ref: string;
+  default_branch?: string;
+  ci?: string;
+}
+
 export interface ScenarioAgentPrompt {
   system: string;
 }
@@ -55,4 +61,6 @@ export interface ScenarioDefinition {
   team?: string[];
   /** Catalog display metadata (summary, difficulty, tags). */
   catalog?: import('./catalog').ScenarioCatalogMeta;
+  /** Which GitHub template repo this scenario provisions from. Falls back to env default. */
+  repo?: ScenarioRepo;
 }
