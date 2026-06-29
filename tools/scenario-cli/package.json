@@ -1,0 +1,21 @@
+{
+  "name": "@tryout/scenario-cli",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "bin": { "scenario": "src/cli.ts" },
+  "scripts": {
+    "cli": "tsx src/cli.ts",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@tryout/db": "workspace:*",
+    "@tryout/shared": "workspace:*",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "tsx": "^4.15.0",
+    "vitest": "^2.0.0",
+    "@types/node": "^20.0.0"
+  }
+}
