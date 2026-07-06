@@ -264,3 +264,145 @@ resource "google_monitoring_alert_policy" "llm_auth" {
     auto_close = "1800s"
   }
 }
+
+# One ops dashboard: traffic, latency, 5xx, disk, uptime, error-log rate.
+resource "google_monitoring_dashboard" "ops" {
+  dashboard_json = jsonencode({
+    displayName = "Tryout Ops"
+    mosaicLayout = {
+      columns = 12
+      tiles = [
+        {
+          xPos = 0, yPos = 0, width = 6, height = 4
+          widget = {
+            title = "Request count (api + web)"
+            xyChart = {
+              dataSets = [{
+                timeSeriesQuery = {
+                  timeSeriesFilter = {
+                    filter = "resource.type=\"cloud_run_revision\" AND metric.type=\"run.googleapis.com/request_count\""
+                    aggregation = {
+                      alignmentPeriod    = "60s"
+                      perSeriesAligner   = "ALIGN_RATE"
+                      crossSeriesReducer = "REDUCE_SUM"
+                      groupByFields      = ["resource.label.service_name"]
+                    }
+                  }
+                }
+                plotType = "LINE"
+              }]
+            }
+          }
+        },
+        {
+          xPos = 6, yPos = 0, width = 6, height = 4
+          widget = {
+            title = "API request latency p95 (ms)"
+            xyChart = {
+              dataSets = [{
+                timeSeriesQuery = {
+                  timeSeriesFilter = {
+                    filter = "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"tryout-api\" AND metric.type=\"run.googleapis.com/request_latencies\""
+                    aggregation = {
+                      alignmentPeriod    = "60s"
+                      perSeriesAligner   = "ALIGN_PERCENTILE_95"
+                      crossSeriesReducer = "REDUCE_MEAN"
+                    }
+                  }
+                }
+                plotType = "LINE"
+              }]
+            }
+          }
+        },
+        {
+          xPos = 0, yPos = 4, width = 6, height = 4
+          widget = {
+            title = "5xx rate (api + web)"
+            xyChart = {
+              dataSets = [{
+                timeSeriesQuery = {
+                  timeSeriesFilter = {
+                    filter = "resource.type=\"cloud_run_revision\" AND metric.type=\"run.googleapis.com/request_count\" AND metric.labels.response_code_class=\"5xx\""
+                    aggregation = {
+                      alignmentPeriod    = "60s"
+                      perSeriesAligner   = "ALIGN_RATE"
+                      crossSeriesReducer = "REDUCE_SUM"
+                      groupByFields      = ["resource.label.service_name"]
+                    }
+                  }
+                }
+                plotType = "LINE"
+              }]
+            }
+          }
+        },
+        {
+          xPos = 6, yPos = 4, width = 6, height = 4
+          widget = {
+            title = "Postgres VM disk % used"
+            xyChart = {
+              dataSets = [{
+                timeSeriesQuery = {
+                  timeSeriesFilter = {
+                    filter = "resource.type=\"gce_instance\" AND metric.type=\"agent.googleapis.com/disk/percent_used\" AND metric.labels.state=\"used\""
+                    aggregation = {
+                      alignmentPeriod    = "60s"
+                      perSeriesAligner   = "ALIGN_MEAN"
+                      crossSeriesReducer = "REDUCE_MAX"
+                      groupByFields      = ["resource.label.instance_id"]
+                    }
+                  }
+                }
+                plotType = "LINE"
+              }]
+            }
+          }
+        },
+        {
+          xPos = 0, yPos = 8, width = 6, height = 4
+          widget = {
+            title = "Uptime check pass"
+            xyChart = {
+              dataSets = [{
+                timeSeriesQuery = {
+                  timeSeriesFilter = {
+                    filter = "resource.type=\"uptime_url\" AND metric.type=\"monitoring.googleapis.com/uptime_check/check_passed\""
+                    aggregation = {
+                      alignmentPeriod    = "300s"
+                      perSeriesAligner   = "ALIGN_FRACTION_TRUE"
+                      crossSeriesReducer = "REDUCE_MIN"
+                      groupByFields      = ["resource.label.host"]
+                    }
+                  }
+                }
+                plotType = "LINE"
+              }]
+            }
+          }
+        },
+        {
+          xPos = 6, yPos = 8, width = 6, height = 4
+          widget = {
+            title = "API error-log rate"
+            xyChart = {
+              dataSets = [{
+                timeSeriesQuery = {
+                  timeSeriesFilter = {
+                    filter = "resource.type=\"cloud_run_revision\" AND metric.type=\"logging.googleapis.com/user/${google_logging_metric.api_errors.name}\""
+                    aggregation = {
+                      alignmentPeriod    = "60s"
+                      perSeriesAligner   = "ALIGN_SUM"
+                      crossSeriesReducer = "REDUCE_SUM"
+                    }
+                  }
+                }
+                plotType = "LINE"
+              }]
+            }
+          }
+        }
+      ]
+    }
+  })
+}
