@@ -146,8 +146,9 @@ resource "google_monitoring_uptime_check_config" "web_home" {
   }
 }
 
-# Fires when either uptime check fails. REDUCE_COUNT_FALSE counts checkers
-# reporting failure; 120s duration absorbs a single network blip.
+# Fires when either uptime check fails. REDUCE_COUNT_FALSE requires multiple
+# checker regions to report failure within the 20-min alignment window, which
+# is the real single-blip guard; detection latency is bounded by that window.
 resource "google_monitoring_alert_policy" "uptime_failure" {
   display_name = "Uptime check failure"
   combiner     = "OR"
@@ -158,7 +159,7 @@ resource "google_monitoring_alert_policy" "uptime_failure" {
       filter          = "resource.type=\"uptime_url\" AND metric.type=\"monitoring.googleapis.com/uptime_check/check_passed\" AND metric.labels.check_id=\"${google_monitoring_uptime_check_config.api_health.uptime_check_id}\""
       comparison      = "COMPARISON_GT"
       threshold_value = 1
-      duration        = "120s"
+      duration        = "0s"
       aggregations {
         alignment_period     = "1200s"
         per_series_aligner   = "ALIGN_NEXT_OLDER"
@@ -175,7 +176,7 @@ resource "google_monitoring_alert_policy" "uptime_failure" {
       filter          = "resource.type=\"uptime_url\" AND metric.type=\"monitoring.googleapis.com/uptime_check/check_passed\" AND metric.labels.check_id=\"${google_monitoring_uptime_check_config.web_home.uptime_check_id}\""
       comparison      = "COMPARISON_GT"
       threshold_value = 1
-      duration        = "120s"
+      duration        = "0s"
       aggregations {
         alignment_period     = "1200s"
         per_series_aligner   = "ALIGN_NEXT_OLDER"
