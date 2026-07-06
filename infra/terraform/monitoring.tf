@@ -1,0 +1,193 @@
+resource "google_monitoring_notification_channel" "email" {
+  display_name = "Tryout alerts"
+  type         = "email"
+  labels = {
+    email_address = var.alert_email
+  }
+}
+
+# Count ERROR-severity logs from the API. F01 (Redis down) + F14 (DB crash) both
+# surface as a burst of backend errors here before anything else notices.
+resource "google_logging_metric" "api_errors" {
+  name   = "tryout_api_errors"
+  filter = "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"tryout-api\" AND severity>=ERROR"
+  metric_descriptor {
+    metric_kind = "DELTA"
+    value_type  = "INT64"
+  }
+}
+
+resource "google_monitoring_alert_policy" "api_error_logs" {
+  display_name = "API error-log spike"
+  combiner     = "OR"
+
+  conditions {
+    display_name = "tryout-api ERROR logs > 5 / min"
+    condition_threshold {
+      filter          = "resource.type=\"cloud_run_revision\" AND metric.type=\"logging.googleapis.com/user/${google_logging_metric.api_errors.name}\""
+      comparison      = "COMPARISON_GT"
+      threshold_value = 5
+      duration        = "60s"
+      aggregations {
+        alignment_period   = "60s"
+        per_series_aligner = "ALIGN_SUM"
+      }
+      trigger { count = 1 }
+    }
+  }
+
+  notification_channels = [google_monitoring_notification_channel.email.id]
+  alert_strategy {
+    auto_close = "1800s"
+  }
+}
+
+# Postgres VM disk filling up — F-series data-loss risk. Ops Agent already ships
+# agent.googleapis.com/disk/percent_used; alert when any mounted device crosses
+# 85% used so there's runway to prune WAL/logs before Postgres wedges on a full
+# disk. REDUCE_MAX so the fullest device trips it, not the average.
+resource "google_monitoring_alert_policy" "postgres_disk_full" {
+  display_name = "Postgres VM disk > 85%"
+  combiner     = "OR"
+
+  conditions {
+    display_name = "tryout-postgres disk used > 85%"
+    condition_threshold {
+      filter          = "resource.type=\"gce_instance\" AND metric.type=\"agent.googleapis.com/disk/percent_used\" AND metric.labels.state=\"used\""
+      comparison      = "COMPARISON_GT"
+      threshold_value = 85
+      duration        = "300s"
+      aggregations {
+        alignment_period     = "60s"
+        per_series_aligner   = "ALIGN_MEAN"
+        cross_series_reducer = "REDUCE_MAX"
+        group_by_fields      = ["resource.label.instance_id"]
+      }
+      trigger { count = 1 }
+    }
+  }
+
+  notification_channels = [google_monitoring_notification_channel.email.id]
+  alert_strategy {
+    auto_close = "1800s"
+  }
+}
+
+# 5xx responses from the API — catches bad deploys (F03), connection exhaustion
+# (F02), connector loss (F08) even when the app can't log.
+resource "google_monitoring_alert_policy" "api_5xx" {
+  display_name = "API 5xx spike"
+  combiner     = "OR"
+
+  conditions {
+    display_name = "tryout-api 5xx rate high"
+    condition_threshold {
+      filter          = "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"tryout-api\" AND metric.type=\"run.googleapis.com/request_count\" AND metric.labels.response_code_class=\"5xx\""
+      comparison      = "COMPARISON_GT"
+      threshold_value = 1
+      duration        = "300s"
+      aggregations {
+        alignment_period   = "60s"
+        per_series_aligner = "ALIGN_RATE"
+        cross_series_reducer = "REDUCE_SUM"
+      }
+      trigger { count = 1 }
+    }
+  }
+
+  notification_channels = [google_monitoring_notification_channel.email.id]
+  alert_strategy {
+    auto_close = "1800s"
+  }
+}
+
+# Uptime checks — /health on the API runs SELECT 1 against Postgres, so one
+# probe covers API liveness + DB reachability. Web / just proves the frontend
+# is serving.
+resource "google_monitoring_uptime_check_config" "api_health" {
+  display_name = "tryout-api /health"
+  timeout      = "10s"
+  period       = "60s"
+
+  http_check {
+    path         = "/health"
+    port         = 443
+    use_ssl      = true
+    validate_ssl = true
+  }
+
+  monitored_resource {
+    type = "uptime_url"
+    labels = {
+      project_id = var.project_id
+      host       = trimprefix(google_cloud_run_v2_service.api.uri, "https://")
+    }
+  }
+}
+
+resource "google_monitoring_uptime_check_config" "web_home" {
+  display_name = "tryout-web /"
+  timeout      = "10s"
+  period       = "60s"
+
+  http_check {
+    path         = "/"
+    port         = 443
+    use_ssl      = true
+    validate_ssl = true
+  }
+
+  monitored_resource {
+    type = "uptime_url"
+    labels = {
+      project_id = var.project_id
+      host       = trimprefix(google_cloud_run_v2_service.web.uri, "https://")
+    }
+  }
+}
+
+# Fires when either uptime check fails. REDUCE_COUNT_FALSE counts checkers
+# reporting failure; 120s duration absorbs a single network blip.
+resource "google_monitoring_alert_policy" "uptime_failure" {
+  display_name = "Uptime check failure"
+  combiner     = "OR"
+
+  conditions {
+    display_name = "tryout-api /health failing"
+    condition_threshold {
+      filter          = "resource.type=\"uptime_url\" AND metric.type=\"monitoring.googleapis.com/uptime_check/check_passed\" AND metric.labels.check_id=\"${google_monitoring_uptime_check_config.api_health.uptime_check_id}\""
+      comparison      = "COMPARISON_GT"
+      threshold_value = 1
+      duration        = "120s"
+      aggregations {
+        alignment_period     = "1200s"
+        per_series_aligner   = "ALIGN_NEXT_OLDER"
+        cross_series_reducer = "REDUCE_COUNT_FALSE"
+        group_by_fields      = ["resource.label.host"]
+      }
+      trigger { count = 1 }
+    }
+  }
+
+  conditions {
+    display_name = "tryout-web / failing"
+    condition_threshold {
+      filter          = "resource.type=\"uptime_url\" AND metric.type=\"monitoring.googleapis.com/uptime_check/check_passed\" AND metric.labels.check_id=\"${google_monitoring_uptime_check_config.web_home.uptime_check_id}\""
+      comparison      = "COMPARISON_GT"
+      threshold_value = 1
+      duration        = "120s"
+      aggregations {
+        alignment_period     = "1200s"
+        per_series_aligner   = "ALIGN_NEXT_OLDER"
+        cross_series_reducer = "REDUCE_COUNT_FALSE"
+        group_by_fields      = ["resource.label.host"]
+      }
+      trigger { count = 1 }
+    }
+  }
+
+  notification_channels = [google_monitoring_notification_channel.email.id]
+  alert_strategy {
+    auto_close = "1800s"
+  }
+}
