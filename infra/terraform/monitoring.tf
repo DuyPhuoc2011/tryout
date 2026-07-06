@@ -192,3 +192,75 @@ resource "google_monitoring_alert_policy" "uptime_failure" {
     auto_close = "1800s"
   }
 }
+
+# Cause-specific log alerts — matched to real incidents (2026-07-06) so the
+# email names the actual cause instead of a generic "errors spiked". Substring
+# match (:) on textPayload; no severity clause because multi-line stderr
+# entries don't always carry ERROR severity on the matching line.
+resource "google_logging_metric" "disk_full_errors" {
+  name   = "tryout_disk_full_errors"
+  filter = "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"tryout-api\" AND textPayload:\"No space left on device\""
+  metric_descriptor {
+    metric_kind = "DELTA"
+    value_type  = "INT64"
+  }
+}
+
+resource "google_logging_metric" "llm_auth_errors" {
+  name   = "tryout_llm_auth_errors"
+  filter = "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"tryout-api\" AND textPayload:\"invalid_api_key\""
+  metric_descriptor {
+    metric_kind = "DELTA"
+    value_type  = "INT64"
+  }
+}
+
+resource "google_monitoring_alert_policy" "disk_full" {
+  display_name = "Postgres disk full (write failures)"
+  combiner     = "OR"
+
+  conditions {
+    display_name = "\"No space left on device\" seen in tryout-api logs"
+    condition_threshold {
+      filter          = "resource.type=\"cloud_run_revision\" AND metric.type=\"logging.googleapis.com/user/${google_logging_metric.disk_full_errors.name}\""
+      comparison      = "COMPARISON_GT"
+      threshold_value = 0
+      duration        = "0s"
+      aggregations {
+        alignment_period   = "60s"
+        per_series_aligner = "ALIGN_SUM"
+      }
+      trigger { count = 1 }
+    }
+  }
+
+  notification_channels = [google_monitoring_notification_channel.email.id]
+  alert_strategy {
+    auto_close = "1800s"
+  }
+}
+
+resource "google_monitoring_alert_policy" "llm_auth" {
+  display_name = "LLM auth failure (invalid_api_key)"
+  combiner     = "OR"
+
+  conditions {
+    display_name = "\"invalid_api_key\" seen in tryout-api logs"
+    condition_threshold {
+      filter          = "resource.type=\"cloud_run_revision\" AND metric.type=\"logging.googleapis.com/user/${google_logging_metric.llm_auth_errors.name}\""
+      comparison      = "COMPARISON_GT"
+      threshold_value = 0
+      duration        = "0s"
+      aggregations {
+        alignment_period   = "60s"
+        per_series_aligner = "ALIGN_SUM"
+      }
+      trigger { count = 1 }
+    }
+  }
+
+  notification_channels = [google_monitoring_notification_channel.email.id]
+  alert_strategy {
+    auto_close = "1800s"
+  }
+}
