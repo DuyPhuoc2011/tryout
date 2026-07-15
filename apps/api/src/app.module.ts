@@ -9,6 +9,7 @@ import { GradingModule } from './grading/grading.module';
 import { IntakeModule } from './intake/intake.module';
 import { MetricsModule } from './metrics/metrics.module';
 import { CatalogModule } from './catalog/catalog.module';
+import { PurchasesModule } from './purchases/purchases.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { CatalogModule } from './catalog/catalog.module';
     IntakeModule,
     MetricsModule,
     CatalogModule,
+    PurchasesModule,
   ],
   controllers: [HealthController],
 })
