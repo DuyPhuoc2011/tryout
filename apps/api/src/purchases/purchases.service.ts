@@ -190,4 +190,54 @@ export class PurchasesService {
       }
     }
   }
+
+  async retryInvite(userId: string, purchaseId: string): Promise<{ status: string }> {
+    const [purchase] = await this.db
+      .select()
+      .from(schema.purchases)
+      .where(and(eq(schema.purchases.id, purchaseId), eq(schema.purchases.userId, userId)))
+      .limit(1);
+    if (!purchase) throw new NotFoundException('Purchase not found');
+    // invite_sent is retryable (GitHub invitations expire after 7 days) and
+    // 'paid' is recoverable (crash between the paid transition and the invite).
+    const invitable = ['paid', 'invite_failed', 'invite_sent'];
+    if (!invitable.includes(purchase.status)) {
+      throw new BadRequestException('Purchase is not in an invitable state');
+    }
+
+    await this.invite(purchase.id, purchase.userId, purchase.listingId);
+
+    const [updated] = await this.db
+      .select()
+      .from(schema.purchases)
+      .where(eq(schema.purchases.id, purchaseId))
+      .limit(1);
+    return { status: updated.status };
+  }
+
+  async mine(userId: string) {
+    const rows = await this.db
+      .select({
+        id: schema.purchases.id,
+        status: schema.purchases.status,
+        createdAt: schema.purchases.createdAt,
+        listingTitle: schema.scenarioListings.title,
+        listingSlug: schema.scenarioListings.slug,
+        contentRepo: schema.scenarioListings.contentRepo,
+      })
+      .from(schema.purchases)
+      .innerJoin(
+        schema.scenarioListings,
+        eq(schema.purchases.listingId, schema.scenarioListings.id),
+      )
+      .where(eq(schema.purchases.userId, userId));
+
+    return rows.map(({ contentRepo, ...row }) => ({
+      ...row,
+      repoUrl:
+        row.status === 'invite_sent'
+          ? `https://github.com/${env.githubOwner()}/${contentRepo}`
+          : null,
+    }));
+  }
 }

@@ -284,3 +284,100 @@ describe('PurchasesService.handleWebhook', () => {
     expect(mockDb.update).not.toHaveBeenCalled();
   });
 });
+
+describe('PurchasesService.retryInvite', () => {
+  let service: PurchasesService;
+
+  beforeEach(async () => {
+    resetChains();
+    service = await makeService();
+  });
+
+  it("404 when the purchase is not the caller's", async () => {
+    mockDb.limit.mockResolvedValueOnce([]); // ownership lookup
+
+    await expect(service.retryInvite('user-2', 'purchase-1')).rejects.toThrow(NotFoundException);
+  });
+
+  it('400 when the purchase is not in an invitable state', async () => {
+    mockDb.limit.mockResolvedValueOnce([
+      { id: 'purchase-1', userId: 'user-1', listingId: 'listing-1', status: 'pending' },
+    ]);
+
+    await expect(service.retryInvite('user-1', 'purchase-1')).rejects.toThrow(
+      BadRequestException,
+    );
+  });
+
+  it('re-invites on invite_failed and returns the new status', async () => {
+    mockDb.limit
+      .mockResolvedValueOnce([
+        { id: 'purchase-1', userId: 'user-1', listingId: 'listing-1', status: 'invite_failed' },
+      ]) // ownership lookup
+      .mockResolvedValueOnce([{ id: 'user-1', githubUsername: 'octocat' }]) // user lookup
+      .mockResolvedValueOnce([listing]) // listing lookup
+      .mockResolvedValueOnce([{ id: 'purchase-1', status: 'invite_sent' }]); // re-read
+    mockGitHub.addRepoCollaborator.mockResolvedValueOnce(undefined);
+
+    const result = await service.retryInvite('user-1', 'purchase-1');
+
+    expect(mockGitHub.addRepoCollaborator).toHaveBeenCalledWith(
+      'test-owner',
+      'scenario-pg-disk-full',
+      'octocat',
+    );
+    expect(result).toEqual({ status: 'invite_sent' });
+  });
+
+  it('recovers a paid-stuck purchase (crash between paid and invite)', async () => {
+    mockDb.limit
+      .mockResolvedValueOnce([
+        { id: 'purchase-1', userId: 'user-1', listingId: 'listing-1', status: 'paid' },
+      ]) // ownership lookup
+      .mockResolvedValueOnce([{ id: 'user-1', githubUsername: 'octocat' }]) // user lookup
+      .mockResolvedValueOnce([listing]) // listing lookup
+      .mockResolvedValueOnce([{ id: 'purchase-1', status: 'invite_sent' }]); // re-read
+    mockGitHub.addRepoCollaborator.mockResolvedValueOnce(undefined);
+
+    const result = await service.retryInvite('user-1', 'purchase-1');
+
+    expect(result).toEqual({ status: 'invite_sent' });
+  });
+});
+
+describe('PurchasesService.mine', () => {
+  let service: PurchasesService;
+
+  beforeEach(async () => {
+    resetChains();
+    service = await makeService();
+  });
+
+  it('returns purchases joined to listings, repoUrl only when invite_sent', async () => {
+    mockDb.where.mockResolvedValueOnce([
+      {
+        id: 'purchase-1',
+        status: 'invite_sent',
+        createdAt: new Date('2026-07-15'),
+        listingTitle: 'Postgres Disk Full',
+        listingSlug: 'pg-disk-full',
+        contentRepo: 'scenario-pg-disk-full',
+      },
+      {
+        id: 'purchase-2',
+        status: 'invite_failed',
+        createdAt: new Date('2026-07-15'),
+        listingTitle: 'LLM Auth Outage',
+        listingSlug: 'llm-auth-outage',
+        contentRepo: 'scenario-llm-auth',
+      },
+    ]);
+
+    const result = await service.mine('user-1');
+
+    expect(result[0].repoUrl).toBe('https://github.com/test-owner/scenario-pg-disk-full');
+    expect(result[1].repoUrl).toBeNull();
+    // contentRepo itself is not leaked; only the derived repoUrl is.
+    expect(result[0]).not.toHaveProperty('contentRepo');
+  });
+});
