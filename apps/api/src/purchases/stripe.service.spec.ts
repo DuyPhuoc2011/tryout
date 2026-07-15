@@ -1,12 +1,13 @@
 import { StripeService } from './stripe.service';
 
 const mockSessionsCreate = jest.fn();
+const mockSessionsExpire = jest.fn();
 const mockConstructEvent = jest.fn();
 
 jest.mock('stripe', () => ({
   __esModule: true,
   default: jest.fn().mockImplementation(() => ({
-    checkout: { sessions: { create: mockSessionsCreate } },
+    checkout: { sessions: { create: mockSessionsCreate, expire: mockSessionsExpire } },
     webhooks: { constructEvent: mockConstructEvent },
   })),
 }));
@@ -51,6 +52,14 @@ describe('StripeService', () => {
       cancel_url: 'http://localhost:3000/purchase/cancelled',
     });
     expect(result).toEqual({ id: 'cs_test_1', url: 'https://checkout.stripe.com/c/cs_test_1' });
+  });
+
+  it('expires a checkout session by id', async () => {
+    mockSessionsExpire.mockResolvedValue({});
+
+    await service.expireCheckoutSession('cs_1');
+
+    expect(mockSessionsExpire).toHaveBeenCalledWith('cs_1');
   });
 
   it('verifies webhook events with the configured secret', () => {

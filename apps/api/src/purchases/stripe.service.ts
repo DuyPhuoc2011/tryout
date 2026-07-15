@@ -50,6 +50,11 @@ export class StripeService {
     return { id: session.id, url: session.url };
   }
 
+  /** Best-effort: expire a previously created (still open) checkout session. */
+  async expireCheckoutSession(sessionId: string): Promise<void> {
+    await this.stripe.checkout.sessions.expire(sessionId);
+  }
+
   /** Throws if the signature does not match the raw payload. */
   constructEvent(payload: Buffer, signature: string): Stripe.Event {
     return this.stripe.webhooks.constructEvent(payload, signature, this.webhookSecret);

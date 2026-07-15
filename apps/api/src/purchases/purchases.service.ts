@@ -70,9 +70,24 @@ export class PurchasesService {
     let purchaseId: string;
     if (existing) {
       purchaseId = existing.id; // abandoned checkout: reuse the pending row
+      if (existing.stripeSessionId) {
+        // The old session may still be payable — expire it so the buyer can
+        // never complete two sessions for one purchase (double charge).
+        try {
+          await this.stripe.expireCheckoutSession(existing.stripeSessionId);
+        } catch (err) {
+          // Already expired/completed is fine; fulfilment is status-guarded.
+          this.logger.warn(
+            `Could not expire stale session ${existing.stripeSessionId}: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        }
+      }
     } else {
       const [created] = await this.db
         .insert(schema.purchases)
+        // Concurrent duplicate insert hits the unique(user_id, listing_id)
+        // constraint and 500s — accepted at MVP: the loser fails BEFORE any
+        // Stripe session exists, so no money risk; the buyer just retries.
         .values({ userId, listingId, amountCents: listing.priceCents })
         .returning();
       purchaseId = created.id;
@@ -88,7 +103,7 @@ export class PurchasesService {
     });
     await this.db
       .update(schema.purchases)
-      .set({ stripeSessionId: session.id })
+      .set({ stripeSessionId: session.id, amountCents: listing.priceCents })
       .where(eq(schema.purchases.id, purchaseId));
 
     return { url: session.url };

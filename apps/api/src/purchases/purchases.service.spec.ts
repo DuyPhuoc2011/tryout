@@ -35,6 +35,7 @@ const mockDb = {
 
 const mockStripe = {
   createCheckoutSession: jest.fn(),
+  expireCheckoutSession: jest.fn(),
   constructEvent: jest.fn(),
 };
 
@@ -122,7 +123,16 @@ describe('PurchasesService.checkout', () => {
       }),
     );
     // Session id persisted on the purchase row.
-    expect(mockDb.set).toHaveBeenCalledWith({ stripeSessionId: 'cs_test_1' });
+    expect(mockDb.set).toHaveBeenCalledWith({
+      stripeSessionId: 'cs_test_1',
+      amountCents: 2900,
+    });
+    expect(mockDb.set).toHaveBeenCalledWith({ githubUsername: 'octocat' });
+    expect(mockDb.values).toHaveBeenCalledWith({
+      userId: 'user-1',
+      listingId: 'listing-1',
+      amountCents: 2900,
+    });
     expect(result).toEqual({ url: 'https://checkout.stripe.com/c/cs_test_1' });
   });
 
@@ -130,7 +140,7 @@ describe('PurchasesService.checkout', () => {
     mockDb.limit
       .mockResolvedValueOnce([listing]) // listing lookup
       .mockResolvedValueOnce([{ id: 'user-1', githubUsername: 'octocat' }]) // user lookup
-      .mockResolvedValueOnce([{ id: 'purchase-1', status: 'pending' }]); // existing pending
+      .mockResolvedValueOnce([{ id: 'purchase-1', status: 'pending', stripeSessionId: 'cs_old' }]); // existing pending
     mockStripe.createCheckoutSession.mockResolvedValueOnce({
       id: 'cs_test_2',
       url: 'https://checkout.stripe.com/c/cs_test_2',
@@ -139,7 +149,27 @@ describe('PurchasesService.checkout', () => {
     const result = await service.checkout('user-1', 'listing-1');
 
     expect(mockDb.insert).not.toHaveBeenCalled();
-    expect(mockDb.set).toHaveBeenCalledWith({ stripeSessionId: 'cs_test_2' });
+    expect(mockStripe.expireCheckoutSession).toHaveBeenCalledWith('cs_old');
+    expect(mockDb.set).toHaveBeenCalledWith({
+      stripeSessionId: 'cs_test_2',
+      amountCents: 2900,
+    });
     expect(result.url).toBe('https://checkout.stripe.com/c/cs_test_2');
+  });
+
+  it('still checks out when expiring the stale session fails', async () => {
+    mockDb.limit
+      .mockResolvedValueOnce([listing]) // listing lookup
+      .mockResolvedValueOnce([{ id: 'user-1', githubUsername: 'octocat' }]) // user lookup
+      .mockResolvedValueOnce([{ id: 'purchase-1', status: 'pending', stripeSessionId: 'cs_old' }]);
+    mockStripe.expireCheckoutSession.mockRejectedValueOnce(new Error('already expired'));
+    mockStripe.createCheckoutSession.mockResolvedValueOnce({
+      id: 'cs_test_3',
+      url: 'https://checkout.stripe.com/c/cs_test_3',
+    });
+
+    const result = await service.checkout('user-1', 'listing-1');
+
+    expect(result.url).toBe('https://checkout.stripe.com/c/cs_test_3');
   });
 });
