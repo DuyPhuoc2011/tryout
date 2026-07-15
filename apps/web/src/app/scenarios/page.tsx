@@ -3,7 +3,9 @@ import type { ListingSummary } from '@/lib/api';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
 
-export const revalidate = 3600;
+// Rendered per request: the Docker build has no API, so any prerender would
+// bake an empty catalog into the page for the whole revalidate window.
+export const dynamic = 'force-dynamic';
 
 function formatPrice(cents: number, currency: string): string {
   return new Intl.NumberFormat('en-US', {
@@ -13,15 +15,9 @@ function formatPrice(cents: number, currency: string): string {
 }
 
 async function getListings(): Promise<ListingSummary[]> {
-  try {
-    const res = await fetch(`${API_URL}/catalog`);
-    if (!res.ok) return [];
-    return (await res.json()) as ListingSummary[];
-  } catch {
-    // API unreachable (e.g. during a static build) — render an empty catalog;
-    // ISR revalidation fills it in at runtime.
-    return [];
-  }
+  const res = await fetch(`${API_URL}/catalog`, { cache: 'no-store' });
+  if (!res.ok) throw new Error(`Catalog unavailable (${res.status})`);
+  return (await res.json()) as ListingSummary[];
 }
 
 export default async function ScenariosPage() {

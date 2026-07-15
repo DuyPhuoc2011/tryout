@@ -5,7 +5,9 @@ import { BuyButton } from './BuyButton';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
 
-export const revalidate = 3600;
+// Rendered per request: the Docker build has no API, so any prerender would
+// bake an empty catalog into the page for the whole revalidate window.
+export const dynamic = 'force-dynamic';
 
 function formatPrice(cents: number, currency: string): string {
   return new Intl.NumberFormat('en-US', {
@@ -15,13 +17,12 @@ function formatPrice(cents: number, currency: string): string {
 }
 
 async function getListing(slug: string): Promise<ListingDetail | null> {
-  try {
-    const res = await fetch(`${API_URL}/catalog/${slug}`);
-    if (!res.ok) return null;
-    return (await res.json()) as ListingDetail;
-  } catch {
-    return null;
-  }
+  const res = await fetch(`${API_URL}/catalog/${encodeURIComponent(slug)}`, {
+    cache: 'no-store',
+  });
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`Listing unavailable (${res.status})`);
+  return (await res.json()) as ListingDetail;
 }
 
 export default async function ScenarioDetailPage({

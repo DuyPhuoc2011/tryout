@@ -26,7 +26,7 @@ export function BuyButton({ listingId, slug, priceLabel }: BuyButtonProps) {
     setLoading(true);
     setError(null);
     try {
-      const { url } = await api.checkout(listingId, username || undefined);
+      const { url } = await api.checkout(listingId, username.trim() || undefined);
       window.location.href = url;
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Checkout failed';
@@ -52,7 +52,7 @@ export function BuyButton({ listingId, slug, priceLabel }: BuyButtonProps) {
           />
         </label>
       )}
-      <button onClick={buy} disabled={loading || (needsUsername && !username)}>
+      <button onClick={buy} disabled={loading || (needsUsername && !username.trim())}>
         {loading ? 'Redirecting…' : `Buy — ${priceLabel}`}
       </button>
       {error && <p role="alert">{error}</p>}
