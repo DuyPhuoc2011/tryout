@@ -62,4 +62,14 @@ describe('StripeService', () => {
     expect(mockConstructEvent).toHaveBeenCalledWith(payload, 'sig-header', 'whsec_fake');
     expect(event).toEqual({ type: 'checkout.session.completed' });
   });
+
+  it('propagates signature verification failures', () => {
+    mockConstructEvent.mockImplementation(() => {
+      throw new Error('No signatures found matching the expected signature');
+    });
+
+    expect(() => service.constructEvent(Buffer.from('{}'), 'forged')).toThrow(
+      'No signatures found matching the expected signature',
+    );
+  });
 });

@@ -24,7 +24,7 @@ export class StripeService {
     secretKey: string,
     private readonly webhookSecret: string,
   ) {
-    this.stripe = new Stripe(secretKey);
+    this.stripe = new Stripe(secretKey, { apiVersion: '2026-06-24.dahlia' });
   }
 
   async createCheckoutSession(params: CheckoutSessionParams): Promise<CheckoutSessionResult> {
@@ -44,7 +44,10 @@ export class StripeService {
       success_url: params.successUrl,
       cancel_url: params.cancelUrl,
     });
-    return { id: session.id, url: session.url ?? '' };
+    if (!session.url) {
+      throw new Error('Stripe session created without a hosted checkout URL');
+    }
+    return { id: session.id, url: session.url };
   }
 
   /** Throws if the signature does not match the raw payload. */
