@@ -34,4 +34,8 @@ export const env = {
   vertexProjectId: process.env.VERTEX_PROJECT_ID,
   openaiApiKey: () => required('OPENAI_API_KEY'),
   openaiBaseUrl: () => required('OPENAI_BASE_URL'),
+  stripeSecretKey: () => required('STRIPE_SECRET_KEY'),
+  stripeWebhookSecret: () => required('STRIPE_WEBHOOK_SECRET'),
+  // Base URL of the web app, used for Stripe success/cancel redirects.
+  webBaseUrl: process.env.WEB_BASE_URL ?? 'http://localhost:3000',
 };
