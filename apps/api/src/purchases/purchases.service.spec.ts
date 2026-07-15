@@ -184,7 +184,7 @@ describe('PurchasesService.handleWebhook', () => {
 
   const completedEvent = {
     type: 'checkout.session.completed',
-    data: { object: { metadata: { purchaseId: 'purchase-1' } } },
+    data: { object: { payment_status: 'paid', metadata: { purchaseId: 'purchase-1' } } },
   };
   const paidRow = { id: 'purchase-1', userId: 'user-1', listingId: 'listing-1', status: 'paid' };
 
@@ -238,6 +238,41 @@ describe('PurchasesService.handleWebhook', () => {
 
     await service.handleWebhook(Buffer.from(JSON.stringify(completedEvent)), 'valid');
 
+    expect(mockDb.set).toHaveBeenCalledWith({ status: 'invite_failed' });
+  });
+
+  it('ignores a completed session whose payment has not settled', async () => {
+    mockStripe.constructEvent.mockReturnValue({
+      type: 'checkout.session.completed',
+      data: { object: { payment_status: 'unpaid', metadata: { purchaseId: 'purchase-1' } } },
+    });
+
+    await service.handleWebhook(Buffer.from('{}'), 'valid');
+
+    expect(mockDb.update).not.toHaveBeenCalled();
+  });
+
+  it('ignores a completed session without a purchaseId in metadata', async () => {
+    mockStripe.constructEvent.mockReturnValue({
+      type: 'checkout.session.completed',
+      data: { object: { payment_status: 'paid', metadata: {} } },
+    });
+
+    await service.handleWebhook(Buffer.from('{}'), 'valid');
+
+    expect(mockDb.update).not.toHaveBeenCalled();
+  });
+
+  it('marks invite_failed when the user has no github username', async () => {
+    mockStripe.constructEvent.mockReturnValue(completedEvent);
+    mockDb.returning.mockResolvedValueOnce([paidRow]);
+    mockDb.limit
+      .mockResolvedValueOnce([{ id: 'user-1', githubUsername: null }]) // user lookup
+      .mockResolvedValueOnce([listing]); // listing lookup
+
+    await service.handleWebhook(Buffer.from(JSON.stringify(completedEvent)), 'valid');
+
+    expect(mockGitHub.addRepoCollaborator).not.toHaveBeenCalled();
     expect(mockDb.set).toHaveBeenCalledWith({ status: 'invite_failed' });
   });
 

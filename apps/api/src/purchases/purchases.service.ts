@@ -7,6 +7,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { and, eq } from 'drizzle-orm';
+import type Stripe from 'stripe';
 import { schema, type Db } from '@tryout/db';
 import { DRIZZLE } from '../db/db.module';
 import { GitHubService } from '../github/github.service';
@@ -110,14 +111,20 @@ export class PurchasesService {
   }
 
   async handleWebhook(rawBody: Buffer, signature: string): Promise<void> {
-    let event;
+    let event: Stripe.Event;
     try {
       event = this.stripe.constructEvent(rawBody, signature);
     } catch {
       throw new BadRequestException('Invalid webhook signature');
     }
     if (event.type !== 'checkout.session.completed') return;
-    const session = event.data.object as { metadata?: { purchaseId?: string } };
+    const session = event.data.object as {
+      payment_status?: string;
+      metadata?: { purchaseId?: string };
+    };
+    // Async payment methods can complete a session before funds settle —
+    // only grant access once Stripe reports the session as paid.
+    if (session.payment_status !== 'paid') return;
     const purchaseId = session.metadata?.purchaseId;
     if (!purchaseId) return;
     await this.fulfil(purchaseId);
@@ -168,10 +175,19 @@ export class PurchasesService {
         `GITHUB_INVITE_FAILED purchase=${purchaseId}`,
         err instanceof Error ? err.stack : String(err),
       );
-      await this.db
-        .update(schema.purchases)
-        .set({ status: 'invite_failed' })
-        .where(eq(schema.purchases.id, purchaseId));
+      try {
+        await this.db
+          .update(schema.purchases)
+          .set({ status: 'invite_failed' })
+          .where(eq(schema.purchases.id, purchaseId));
+      } catch (updateErr) {
+        // Alert already logged above; the row stays 'paid' and the
+        // retry endpoint picks it up. Never reject after payment.
+        this.logger.error(
+          `Failed to mark purchase ${purchaseId} invite_failed`,
+          updateErr instanceof Error ? updateErr.stack : String(updateErr),
+        );
+      }
     }
   }
 }
