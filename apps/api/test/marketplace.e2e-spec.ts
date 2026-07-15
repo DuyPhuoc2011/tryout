@@ -157,6 +157,14 @@ describe('Marketplace (e2e)', () => {
       .expect(201);
 
     expect(mockGitHubService.addRepoCollaborator.mock.calls.length).toBe(callsBefore);
+
+    // The row must still be invite_sent — the replay must not have touched it.
+    const mine = await request(app.getHttpServer())
+      .get('/purchases/mine')
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(200);
+    expect(mine.body).toHaveLength(1);
+    expect(mine.body[0].status).toBe('invite_sent');
   });
 
   it('webhook with a bad signature → 400', async () => {
