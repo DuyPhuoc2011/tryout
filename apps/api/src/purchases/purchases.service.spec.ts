@@ -343,6 +343,21 @@ describe('PurchasesService.retryInvite', () => {
 
     expect(result).toEqual({ status: 'invite_sent' });
   });
+
+  it('resolves with invite_failed when the GitHub call fails (no throw)', async () => {
+    mockDb.limit
+      .mockResolvedValueOnce([
+        { id: 'purchase-1', userId: 'user-1', listingId: 'listing-1', status: 'invite_failed' },
+      ]) // ownership lookup
+      .mockResolvedValueOnce([{ id: 'user-1', githubUsername: 'octocat' }]) // user lookup
+      .mockResolvedValueOnce([listing]) // listing lookup
+      .mockResolvedValueOnce([{ id: 'purchase-1', status: 'invite_failed' }]); // re-read
+    mockGitHub.addRepoCollaborator.mockRejectedValueOnce(new Error('rate limited'));
+
+    await expect(service.retryInvite('user-1', 'purchase-1')).resolves.toEqual({
+      status: 'invite_failed',
+    });
+  });
 });
 
 describe('PurchasesService.mine', () => {

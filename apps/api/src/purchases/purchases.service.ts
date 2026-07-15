@@ -6,7 +6,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, ne } from 'drizzle-orm';
 import type Stripe from 'stripe';
 import { schema, type Db } from '@tryout/db';
 import { DRIZZLE } from '../db/db.module';
@@ -176,10 +176,16 @@ export class PurchasesService {
         err instanceof Error ? err.stack : String(err),
       );
       try {
+        // A concurrent retry may already have succeeded — never downgrade invite_sent.
         await this.db
           .update(schema.purchases)
           .set({ status: 'invite_failed' })
-          .where(eq(schema.purchases.id, purchaseId));
+          .where(
+            and(
+              eq(schema.purchases.id, purchaseId),
+              ne(schema.purchases.status, 'invite_sent'),
+            ),
+          );
       } catch (updateErr) {
         // Alert already logged above; the row stays 'paid' and the
         // retry endpoint picks it up. Never reject after payment.
