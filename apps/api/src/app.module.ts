@@ -8,6 +8,7 @@ import { AgentsModule } from './agents/agents.module';
 import { GradingModule } from './grading/grading.module';
 import { IntakeModule } from './intake/intake.module';
 import { MetricsModule } from './metrics/metrics.module';
+import { CatalogModule } from './catalog/catalog.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { MetricsModule } from './metrics/metrics.module';
     GradingModule,
     IntakeModule,
     MetricsModule,
+    CatalogModule,
   ],
   controllers: [HealthController],
 })
