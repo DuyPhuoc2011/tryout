@@ -124,6 +124,11 @@ scorecards      — id, scenarioRunId, technicalScore, professionalScore, ...
 
 Required (throw if missing): `DATABASE_URL`, `JWT_SECRET`, `GITHUB_TOKEN`, `GITHUB_OWNER`, `ANTHROPIC_API_KEY` (the last needed when agents run)
 
+Marketplace (required at boot — PurchasesModule reads them at startup):
+- `STRIPE_SECRET_KEY` — Stripe API key (test mode until launch)
+- `STRIPE_WEBHOOK_SECRET` — webhook endpoint signing secret
+- `WEB_BASE_URL` — default `http://localhost:3000`; Stripe success/cancel redirect base
+
 Optional with defaults:
 - `PORT` — 3001
 - `JWT_EXPIRES_IN` — 7d
