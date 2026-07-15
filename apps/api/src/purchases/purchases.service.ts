@@ -108,4 +108,70 @@ export class PurchasesService {
 
     return { url: session.url };
   }
+
+  async handleWebhook(rawBody: Buffer, signature: string): Promise<void> {
+    let event;
+    try {
+      event = this.stripe.constructEvent(rawBody, signature);
+    } catch {
+      throw new BadRequestException('Invalid webhook signature');
+    }
+    if (event.type !== 'checkout.session.completed') return;
+    const session = event.data.object as { metadata?: { purchaseId?: string } };
+    const purchaseId = session.metadata?.purchaseId;
+    if (!purchaseId) return;
+    await this.fulfil(purchaseId);
+  }
+
+  /**
+   * pending → paid → invite_sent|invite_failed. The status-guarded UPDATE makes
+   * webhook replays no-ops: only the delivery that wins the transition proceeds.
+   */
+  private async fulfil(purchaseId: string): Promise<void> {
+    const [paidRow] = await this.db
+      .update(schema.purchases)
+      .set({ status: 'paid' })
+      .where(and(eq(schema.purchases.id, purchaseId), eq(schema.purchases.status, 'pending')))
+      .returning();
+    if (!paidRow) return; // replay or unknown id
+    await this.invite(paidRow.id, paidRow.userId, paidRow.listingId);
+  }
+
+  private async invite(purchaseId: string, userId: string, listingId: string): Promise<void> {
+    try {
+      const [user] = await this.db
+        .select()
+        .from(schema.users)
+        .where(eq(schema.users.id, userId))
+        .limit(1);
+      const [listing] = await this.db
+        .select()
+        .from(schema.scenarioListings)
+        .where(eq(schema.scenarioListings.id, listingId))
+        .limit(1);
+      if (!user?.githubUsername || !listing) {
+        throw new Error(`purchase ${purchaseId}: missing github username or listing`);
+      }
+      await this.github.addRepoCollaborator(
+        env.githubOwner(),
+        listing.contentRepo,
+        user.githubUsername,
+      );
+      await this.db
+        .update(schema.purchases)
+        .set({ status: 'invite_sent', invitedAt: new Date() })
+        .where(eq(schema.purchases.id, purchaseId));
+    } catch (err) {
+      // Buyer has paid — never throw past this point. Mark for retry and alert
+      // via the existing log-based monitoring (message is the alert match key).
+      this.logger.error(
+        `GITHUB_INVITE_FAILED purchase=${purchaseId}`,
+        err instanceof Error ? err.stack : String(err),
+      );
+      await this.db
+        .update(schema.purchases)
+        .set({ status: 'invite_failed' })
+        .where(eq(schema.purchases.id, purchaseId));
+    }
+  }
 }

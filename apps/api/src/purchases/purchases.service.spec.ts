@@ -173,3 +173,79 @@ describe('PurchasesService.checkout', () => {
     expect(result.url).toBe('https://checkout.stripe.com/c/cs_test_3');
   });
 });
+
+describe('PurchasesService.handleWebhook', () => {
+  let service: PurchasesService;
+
+  beforeEach(async () => {
+    resetChains();
+    service = await makeService();
+  });
+
+  const completedEvent = {
+    type: 'checkout.session.completed',
+    data: { object: { metadata: { purchaseId: 'purchase-1' } } },
+  };
+  const paidRow = { id: 'purchase-1', userId: 'user-1', listingId: 'listing-1', status: 'paid' };
+
+  it('throws 400 on an invalid signature and touches nothing', async () => {
+    mockStripe.constructEvent.mockImplementation(() => {
+      throw new Error('bad signature');
+    });
+
+    await expect(service.handleWebhook(Buffer.from('{}'), 'bad')).rejects.toThrow(
+      BadRequestException,
+    );
+    expect(mockDb.update).not.toHaveBeenCalled();
+  });
+
+  it('completed event: pending → paid → invite_sent, GitHub invited with pull access', async () => {
+    mockStripe.constructEvent.mockReturnValue(completedEvent);
+    mockDb.returning.mockResolvedValueOnce([paidRow]); // pending → paid transition
+    mockDb.limit
+      .mockResolvedValueOnce([{ id: 'user-1', githubUsername: 'octocat' }]) // user lookup
+      .mockResolvedValueOnce([listing]); // listing lookup
+    mockGitHub.addRepoCollaborator.mockResolvedValueOnce(undefined);
+
+    await service.handleWebhook(Buffer.from(JSON.stringify(completedEvent)), 'valid');
+
+    expect(mockGitHub.addRepoCollaborator).toHaveBeenCalledWith(
+      'test-owner',
+      'scenario-pg-disk-full',
+      'octocat',
+    );
+    expect(mockDb.set).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'invite_sent', invitedAt: expect.any(Date) }),
+    );
+  });
+
+  it('webhook replay: no pending row matched → no GitHub call', async () => {
+    mockStripe.constructEvent.mockReturnValue(completedEvent);
+    mockDb.returning.mockResolvedValueOnce([]); // already processed
+
+    await service.handleWebhook(Buffer.from(JSON.stringify(completedEvent)), 'valid');
+
+    expect(mockGitHub.addRepoCollaborator).not.toHaveBeenCalled();
+  });
+
+  it('GitHub invite failure marks the purchase invite_failed', async () => {
+    mockStripe.constructEvent.mockReturnValue(completedEvent);
+    mockDb.returning.mockResolvedValueOnce([paidRow]);
+    mockDb.limit
+      .mockResolvedValueOnce([{ id: 'user-1', githubUsername: 'octocat' }])
+      .mockResolvedValueOnce([listing]);
+    mockGitHub.addRepoCollaborator.mockRejectedValueOnce(new Error('404 user not found'));
+
+    await service.handleWebhook(Buffer.from(JSON.stringify(completedEvent)), 'valid');
+
+    expect(mockDb.set).toHaveBeenCalledWith({ status: 'invite_failed' });
+  });
+
+  it('ignores event types other than checkout.session.completed', async () => {
+    mockStripe.constructEvent.mockReturnValue({ type: 'payment_intent.created', data: { object: {} } });
+
+    await service.handleWebhook(Buffer.from('{}'), 'valid');
+
+    expect(mockDb.update).not.toHaveBeenCalled();
+  });
+});
