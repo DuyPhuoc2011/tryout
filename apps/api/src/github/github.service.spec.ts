@@ -5,6 +5,7 @@ const mockOctokit = {
   rest: {
     repos: {
       createUsingTemplate: jest.fn(),
+      addCollaborator: jest.fn(),
     },
     pulls: {
       list: jest.fn(),
@@ -161,6 +162,21 @@ describe('GitHubService', () => {
         pull_number: 7,
         body: 'Looks close. A few things to fix.',
         event: 'REQUEST_CHANGES',
+      });
+    });
+  });
+
+  describe('addRepoCollaborator', () => {
+    it('invites the user with read-only (pull) permission', async () => {
+      mockOctokit.rest.repos.addCollaborator.mockResolvedValue({ data: {} });
+
+      await service.addRepoCollaborator('test-owner', 'scenario-pg-disk-full', 'octocat');
+
+      expect(mockOctokit.rest.repos.addCollaborator).toHaveBeenCalledWith({
+        owner: 'test-owner',
+        repo: 'scenario-pg-disk-full',
+        username: 'octocat',
+        permission: 'pull',
       });
     });
   });

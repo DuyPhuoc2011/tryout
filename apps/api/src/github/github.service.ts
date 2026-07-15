@@ -92,12 +92,42 @@ export class GitHubService {
     body: string,
     event: ReviewEvent,
   ): Promise<void> {
-    await this.octokit.rest.pulls.createReview({
+    try {
+      await this.octokit.rest.pulls.createReview({
+        owner,
+        repo,
+        pull_number: prNumber,
+        body,
+        event,
+      });
+    } catch (err) {
+      // GitHub rejects APPROVE/REQUEST_CHANGES on your *own* PR with a 422. In real
+      // use the candidate and the senior-bot are different identities, so this never
+      // fires; in solo/local testing they can be the same account. Fall back to a
+      // plain COMMENT so the review still posts and the loop continues.
+      // ponytail: only the self-review 422 is retried; everything else rethrows.
+      const status = (err as { status?: number })?.status;
+      if (status === 422 && event !== 'COMMENT') {
+        await this.octokit.rest.pulls.createReview({
+          owner,
+          repo,
+          pull_number: prNumber,
+          body,
+          event: 'COMMENT',
+        });
+        return;
+      }
+      throw err;
+    }
+  }
+
+  /** Invite a buyer to a scenario content repo with read-only access. */
+  async addRepoCollaborator(owner: string, repo: string, username: string): Promise<void> {
+    await this.octokit.rest.repos.addCollaborator({
       owner,
       repo,
-      pull_number: prNumber,
-      body,
-      event,
+      username,
+      permission: 'pull',
     });
   }
 }
