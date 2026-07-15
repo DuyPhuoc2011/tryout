@@ -93,6 +93,29 @@ export interface PublicScorecardView extends ScorecardView {
   scenarioTitle: string;
 }
 
+export interface ListingSummary {
+  id: string;
+  slug: string;
+  title: string;
+  tagline: string;
+  priceCents: number;
+  currency: string;
+}
+
+export interface ListingDetail extends ListingSummary {
+  story: string;
+  contents: string;
+}
+
+export interface PurchaseView {
+  id: string;
+  status: 'pending' | 'paid' | 'invite_sent' | 'invite_failed' | 'refunded';
+  createdAt: string;
+  listingTitle: string;
+  listingSlug: string;
+  repoUrl: string | null;
+}
+
 export const api = {
   signup: (email: string, password: string) =>
     post<AuthResponse>('/auth/signup', { email, password }),
@@ -217,5 +240,34 @@ export const api = {
     if (res.status === 404) return null;
     if (!res.ok) throw new Error(`Failed to load scorecard (${res.status})`);
     return res.json() as Promise<PublicScorecardView>;
+  },
+
+  checkout: async (listingId: string, githubUsername?: string): Promise<{ url: string }> => {
+    const res = await fetch(`${API_URL}/purchases/checkout`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify(githubUsername ? { listingId, githubUsername } : { listingId }),
+    });
+    if (!res.ok) {
+      throw new Error(await errorMessage(res, `Checkout failed (${res.status})`));
+    }
+    return res.json() as Promise<{ url: string }>;
+  },
+
+  myPurchases: async (): Promise<PurchaseView[]> => {
+    const res = await fetch(`${API_URL}/purchases/mine`, { headers: { ...authHeaders() } });
+    if (!res.ok) throw new Error(`Failed to load purchases (${res.status})`);
+    return res.json() as Promise<PurchaseView[]>;
+  },
+
+  retryInvite: async (purchaseId: string): Promise<{ status: string }> => {
+    const res = await fetch(`${API_URL}/purchases/${purchaseId}/retry-invite`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    });
+    if (!res.ok) {
+      throw new Error(await errorMessage(res, `Retry failed (${res.status})`));
+    }
+    return res.json() as Promise<{ status: string }>;
   },
 };
