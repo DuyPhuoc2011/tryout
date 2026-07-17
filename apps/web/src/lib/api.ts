@@ -58,6 +58,18 @@ export interface PurchaseView {
   repoUrl: string | null;
 }
 
+export interface TutorMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  createdAt: string;
+}
+
+export interface TutorThread {
+  phase: string;
+  messages: TutorMessage[];
+}
+
 export const api = {
   signup: (email: string, password: string) =>
     post<AuthResponse>('/auth/signup', { email, password }),
@@ -97,5 +109,28 @@ export const api = {
       throw new Error(await errorMessage(res, `Retry failed (${res.status})`));
     }
     return res.json() as Promise<{ status: string }>;
+  },
+
+  getTutorThread: async (listingId: string): Promise<TutorThread> => {
+    const res = await fetch(`${API_URL}/tutor/${listingId}/messages`, {
+      headers: { ...authHeaders() },
+    });
+    if (!res.ok) throw new Error(`Failed to load tutor (${res.status})`);
+    return res.json() as Promise<TutorThread>;
+  },
+
+  sendTutorMessage: async (
+    listingId: string,
+    content: string,
+  ): Promise<{ reply: string; phase: string }> => {
+    const res = await fetch(`${API_URL}/tutor/${listingId}/messages`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ content }),
+    });
+    if (!res.ok) {
+      throw new Error(await errorMessage(res, `Failed to send (${res.status})`));
+    }
+    return res.json() as Promise<{ reply: string; phase: string }>;
   },
 };
