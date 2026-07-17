@@ -27,4 +27,8 @@ export const env = {
   stripeWebhookSecret: () => required('STRIPE_WEBHOOK_SECRET'),
   // Base URL of the web app, used for Stripe success/cancel redirects.
   webBaseUrl: process.env.WEB_BASE_URL ?? 'http://localhost:3000',
+  // Tutor agent (Python LangGraph service).
+  tutorAgentUrl: process.env.TUTOR_AGENT_URL ?? 'http://localhost:8000',
+  tutorAgentToken: () => required('TUTOR_AGENT_TOKEN'),
+  tutorDailyMessageLimit: Number(process.env.TUTOR_DAILY_MESSAGE_LIMIT ?? 50),
 };
