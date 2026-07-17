@@ -11,6 +11,7 @@ interface ListingFile {
   priceCents: number;
   currency?: string;
   contentRepo: string;
+  tutorBrief?: string;
   status?: 'draft' | 'published' | 'archived';
 }
 
@@ -48,6 +49,7 @@ async function main(): Promise<void> {
     priceCents: raw.priceCents,
     currency: raw.currency ?? 'usd',
     contentRepo: raw.contentRepo,
+    tutorBrief: raw.tutorBrief ?? null,
     status: raw.status ?? 'draft',
     updatedAt: new Date(),
   };
