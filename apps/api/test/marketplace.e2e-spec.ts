@@ -4,22 +4,10 @@ import request from 'supertest';
 import postgres from 'postgres';
 import { AppModule } from '../src/app.module';
 import { GitHubService } from '../src/github/github.service';
-import { QueueService } from '../src/queue/queue.service';
 import { StripeService } from '../src/purchases/stripe.service';
 
 const mockGitHubService = {
-  createRepoFromTemplate: jest.fn(),
-  listOpenPullRequests: jest.fn().mockResolvedValue([]),
-  getPullRequestDiff: jest.fn().mockResolvedValue(''),
-  getCheckRuns: jest.fn().mockResolvedValue([]),
   addRepoCollaborator: jest.fn().mockResolvedValue(undefined),
-};
-
-const mockQueueService = {
-  enqueuePollPr: jest.fn().mockResolvedValue(undefined),
-  enqueuePollCi: jest.fn().mockResolvedValue(undefined),
-  enqueuePmIntro: jest.fn().mockResolvedValue(undefined),
-  enqueueReview: jest.fn().mockResolvedValue(undefined),
 };
 
 // Signature 'valid-signature' passes; anything else throws — mirrors constructEvent.
@@ -57,8 +45,6 @@ describe('Marketplace (e2e)', () => {
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(GitHubService)
       .useValue(mockGitHubService)
-      .overrideProvider(QueueService)
-      .useValue(mockQueueService)
       .overrideProvider(StripeService)
       .useValue(mockStripeService)
       .compile();

@@ -7,7 +7,7 @@ import { env } from '../config/env';
     {
       provide: GitHubService,
       useFactory: () =>
-        new GitHubService(env.githubToken(), env.githubOwner(), env.githubTemplateRepo),
+        new GitHubService(env.githubToken(), env.githubOwner()),
     },
   ],
   exports: [GitHubService],

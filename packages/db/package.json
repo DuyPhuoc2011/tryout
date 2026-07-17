@@ -8,7 +8,8 @@
     "build": "tsc -p tsconfig.json",
     "generate": "drizzle-kit generate",
     "migrate": "drizzle-kit migrate",
-    "seed": "tsx src/seeds/seed-scenario-01.ts",
+    "seed": "echo \"no seed — use upsert-listing to author marketplace listings\" && exit 0",
+    "upsert-listing": "tsx src/seeds/upsert-listing.ts",
     "test": "echo \"no tests\" && exit 0"
   },
   "dependencies": {
