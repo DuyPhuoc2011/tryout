@@ -1,0 +1,36 @@
+.band { background: var(--brand-gradient); color: white; }
+.bandInner {
+  max-width: 860px; margin: 0 auto;
+  padding: 0 clamp(1.25rem, 4vw, 2.5rem) clamp(1.5rem, 4vw, 2rem);
+}
+.nav {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--space-3); height: 68px;
+}
+.logo { font-family: var(--font-display), sans-serif; font-weight: 600; color: white; }
+.logo b { color: var(--color-signal); }
+.back { color: oklch(82% 0.03 264); font-weight: 600; font-size: var(--text-sm); }
+.back:hover { color: white; text-decoration: none; }
+.title {
+  font-family: var(--font-display), sans-serif; font-weight: 600;
+  font-size: clamp(1.4rem, 1.1rem + 1.4vw, 2rem); margin: 0.5rem 0 0.35rem; color: white;
+}
+.phase {
+  font-family: var(--font-mono), monospace; font-size: var(--text-sm);
+  color: var(--color-signal); text-transform: uppercase; letter-spacing: 0.06em;
+}
+.body { max-width: 860px; margin: 0 auto; padding: clamp(1.5rem, 4vw, 2.5rem) clamp(1.25rem, 4vw, 2.5rem) 3rem; }
+.thread { display: flex; flex-direction: column; gap: var(--space-3); margin-bottom: var(--space-4); }
+.turn { max-width: 80%; padding: var(--space-2) var(--space-3); border-radius: var(--radius); line-height: 1.55; white-space: pre-wrap; }
+.user { align-self: flex-end; background: var(--color-accent); color: white; }
+.assistant { align-self: flex-start; background: var(--color-surface); border: 1px solid var(--color-line); color: var(--color-ink); }
+.greeting { color: var(--color-muted); line-height: 1.6; padding: var(--space-3); border: 1px dashed var(--color-line); border-radius: var(--radius); margin-bottom: var(--space-4); }
+.form { display: flex; gap: var(--space-2); align-items: flex-end; position: sticky; bottom: 1rem; }
+.input {
+  flex: 1; min-height: 2.75rem; max-height: 12rem; resize: vertical;
+  padding: 0.7rem 0.85rem; font: inherit; color: var(--color-ink);
+  background: var(--color-surface); border: 1px solid var(--color-line); border-radius: var(--radius-sm);
+}
+.input:focus-visible { outline: none; border-color: var(--color-accent); box-shadow: var(--ring); }
+.send { width: auto; padding: 0.7rem 1.2rem; }
+.error { color: var(--color-danger); margin: var(--space-2) 0; }
