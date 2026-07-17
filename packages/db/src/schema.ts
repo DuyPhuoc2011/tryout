@@ -41,6 +41,8 @@ export const scenarioListings = pgTable('scenario_listings', {
   priceCents: integer('price_cents').notNull(),
   currency: text('currency').notNull().default('usd'),
   contentRepo: text('content_repo').notNull(),
+  // Private guided-walkthrough knowledge for the tutor. NEVER exposed via /catalog.
+  tutorBrief: text('tutor_brief'),
   status: listingStatusEnum('status').notNull().default('draft'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
@@ -65,6 +67,38 @@ export const purchases = pgTable(
   (t) => ({
     // One purchase row per user+listing; an abandoned checkout reuses its pending row.
     userListingUnique: unique('purchases_user_listing_unique').on(t.userId, t.listingId),
+  }),
+);
+
+export const tutorMessages = pgTable('tutor_messages', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id')
+    .notNull()
+    .references(() => users.id),
+  listingId: uuid('listing_id')
+    .notNull()
+    .references(() => scenarioListings.id),
+  role: text('role').notNull(), // 'user' | 'assistant'
+  content: text('content').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const tutorThreads = pgTable(
+  'tutor_threads',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id),
+    listingId: uuid('listing_id')
+      .notNull()
+      .references(() => scenarioListings.id),
+    phase: text('phase').notNull().default('orient'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    userListingUnique: unique('tutor_threads_user_listing_unique').on(t.userId, t.listingId),
   }),
 );
 
