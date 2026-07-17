@@ -1,12 +1,4 @@
-import type {
-  AuthResponse,
-  ScenarioCompanyContext,
-  ScenarioTicket,
-  TeamSeatView,
-  IntakeSessionView,
-  IntakeTurnResult,
-  IntakePlacementResult,
-} from '@tryout/shared';
+import type { AuthResponse } from '@tryout/shared';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
 
@@ -43,56 +35,6 @@ async function errorMessage(res: Response, fallback: string): Promise<string> {
   return text;
 }
 
-export interface StartRunResponse {
-  id: string;
-  repoUrl: string;
-  status: string;
-}
-
-export type TeamSeatViewWithYou = TeamSeatView & { isYou: boolean };
-
-export interface ScenarioRunView {
-  id: string;
-  status: string;
-  startedAt: string | null;
-  chosenRole: string | null;
-  scenario: {
-    title: string;
-    companyContext: ScenarioCompanyContext;
-    ticket: ScenarioTicket;
-  } | null;
-  team: TeamSeatViewWithYou[];
-  repo: { url: string; prNumber: number | null } | null;
-  pmIntro: { content: string; createdAt: string } | null;
-  latestSubmission: { prUrl: string; ciStatus: string | null; createdAt: string } | null;
-  latestReview: {
-    verdict: 'approve' | 'request_changes';
-    comments: { summary: string; comments: string[] } | null;
-    createdAt: string;
-  } | null;
-}
-
-export interface AgentMessageView {
-  id: string;
-  agentRole: 'pm' | 'senior';
-  direction: 'user' | 'agent';
-  content: string;
-  createdAt: string;
-}
-
-export interface ScorecardView {
-  technicalScore: number;
-  technicalFeedback: string;
-  professionalScore: number;
-  professionalFeedback: string;
-  overallFeedback: string;
-  createdAt: string;
-}
-
-export interface PublicScorecardView extends ScorecardView {
-  scenarioTitle: string;
-}
-
 export interface ListingSummary {
   id: string;
   slug: string;
@@ -122,124 +64,10 @@ export const api = {
   login: (email: string, password: string) =>
     post<AuthResponse>('/auth/login', { email, password }),
 
-  startIntake: async (): Promise<IntakeSessionView> => {
-    const res = await fetch(`${API_URL}/intake`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...authHeaders() },
-    });
-    if (!res.ok) throw new Error(`Failed to start intake (${res.status})`);
-    return res.json() as Promise<IntakeSessionView>;
-  },
-
-  getIntake: async (id: string): Promise<IntakeSessionView> => {
-    const res = await fetch(`${API_URL}/intake/${id}`, { headers: { ...authHeaders() } });
-    if (!res.ok) throw new Error(`Failed to load intake (${res.status})`);
-    return res.json() as Promise<IntakeSessionView>;
-  },
-
-  sendIntakeMessage: async (id: string, content: string): Promise<IntakeTurnResult> => {
-    const res = await fetch(`${API_URL}/intake/${id}/messages`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...authHeaders() },
-      body: JSON.stringify({ content }),
-    });
-    if (!res.ok) throw new Error(`Failed to send message (${res.status})`);
-    return res.json() as Promise<IntakeTurnResult>;
-  },
-
-  uploadCv: async (id: string, file: File): Promise<IntakeTurnResult> => {
-    const form = new FormData();
-    form.append('file', file);
-    // No Content-Type header: the browser sets the multipart boundary.
-    const res = await fetch(`${API_URL}/intake/${id}/cv`, {
-      method: 'POST',
-      headers: { ...authHeaders() },
-      body: form,
-    });
-    if (!res.ok) {
-      const message = await res.text();
-      throw new Error(message || `Failed to upload CV (${res.status})`);
-    }
-    return res.json() as Promise<IntakeTurnResult>;
-  },
-
-  placeIntake: async (id: string): Promise<IntakePlacementResult> => {
-    const res = await fetch(`${API_URL}/intake/${id}/place`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...authHeaders() },
-    });
-    if (!res.ok) {
-      throw new Error(await errorMessage(res, `Failed to place (${res.status})`));
-    }
-    return res.json() as Promise<IntakePlacementResult>;
-  },
-
-  startRun: async (scenarioId: string, role: string): Promise<StartRunResponse> => {
-    const res = await fetch(`${API_URL}/scenario-runs`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...authHeaders() },
-      body: JSON.stringify({ scenarioId, role }),
-    });
-    if (!res.ok) {
-      throw new Error(await errorMessage(res, `Failed to start run (${res.status})`));
-    }
-    return res.json() as Promise<StartRunResponse>;
-  },
-
-  getRun: async (id: string): Promise<ScenarioRunView> => {
-    const res = await fetch(`${API_URL}/scenario-runs/${id}`, {
-      headers: { ...authHeaders() },
-    });
-    if (!res.ok) throw new Error(`Failed to load run (${res.status})`);
-    return res.json() as Promise<ScenarioRunView>;
-  },
-
-  getMessages: async (runId: string): Promise<AgentMessageView[]> => {
-    const res = await fetch(`${API_URL}/scenario-runs/${runId}/messages`, {
-      headers: { ...authHeaders() },
-    });
-    if (!res.ok) throw new Error(`Failed to load messages (${res.status})`);
-    return res.json() as Promise<AgentMessageView[]>;
-  },
-
-  sendMessage: async (
-    runId: string,
-    agentRole: 'pm' | 'senior',
-    content: string,
-  ): Promise<AgentMessageView> => {
-    const res = await fetch(`${API_URL}/scenario-runs/${runId}/messages`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...authHeaders() },
-      body: JSON.stringify({ agentRole, content }),
-    });
-    if (!res.ok) throw new Error(`Failed to send message (${res.status})`);
-    return res.json() as Promise<AgentMessageView>;
-  },
-
-  requestGrade: async (runId: string): Promise<{ status: string }> => {
-    const res = await fetch(`${API_URL}/scenario-runs/${runId}/grade`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...authHeaders() },
-    });
-    if (!res.ok) throw new Error(`Failed to request grading (${res.status})`);
-    return res.json() as Promise<{ status: string }>;
-  },
-
-  getScorecard: async (runId: string): Promise<ScorecardView | null> => {
-    const res = await fetch(`${API_URL}/scenario-runs/${runId}/scorecard`, {
-      headers: { ...authHeaders() },
-    });
-    if (res.status === 404) return null;
-    if (!res.ok) throw new Error(`Failed to load scorecard (${res.status})`);
-    return res.json() as Promise<ScorecardView>;
-  },
-
-  // Public, no auth — used by the shareable scorecard page.
-  getPublicScorecard: async (runId: string): Promise<PublicScorecardView | null> => {
-    const res = await fetch(`${API_URL}/share/${runId}/scorecard`);
-    if (res.status === 404) return null;
-    if (!res.ok) throw new Error(`Failed to load scorecard (${res.status})`);
-    return res.json() as Promise<PublicScorecardView>;
+  catalog: async (): Promise<ListingSummary[]> => {
+    const res = await fetch(`${API_URL}/catalog`, { headers: { ...authHeaders() } });
+    if (!res.ok) throw new Error(`Failed to load catalog (${res.status})`);
+    return res.json() as Promise<ListingSummary[]>;
   },
 
   checkout: async (listingId: string, githubUsername?: string): Promise<{ url: string }> => {

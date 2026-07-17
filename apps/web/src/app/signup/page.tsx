@@ -19,7 +19,7 @@ export default function SignupPage() {
       const res = await api.signup(email, password);
       localStorage.setItem('tryout_token', res.token);
       localStorage.setItem('tryout_email', res.user.email);
-      window.location.href = '/dashboard';
+      window.location.href = '/home';
     } catch {
       setError('Unable to create an account with those details.');
     } finally {
@@ -31,7 +31,7 @@ export default function SignupPage() {
     <AuthShell>
       <h1 style={{ fontSize: 'var(--text-lg)', margin: '0 0 var(--space-1)' }}>Join Tryout</h1>
       <p style={{ color: 'var(--color-muted)', margin: '0 0 var(--space-4)' }}>
-        Create an account to start your first ticket.
+        Create an account to start your first scenario.
       </p>
       <form onSubmit={onSubmit} aria-label="Sign up">
         <FieldStack>

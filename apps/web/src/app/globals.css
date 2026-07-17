@@ -8,6 +8,10 @@
   --color-accent: oklch(56% 0.17 264);
   --color-accent-strong: oklch(48% 0.18 264);
   --color-danger: oklch(55% 0.2 25);
+  /* Brand signal (gold). Used on dark surfaces only — fails AA on light. */
+  --color-signal: oklch(84% 0.14 86);
+  /* Login brand panel gradient — reused by the landing hero band. */
+  --brand-gradient: linear-gradient(155deg, oklch(34% 0.11 264) 0%, oklch(24% 0.07 270) 100%);
 
   /* Type scale */
   --text-sm: 0.85rem;

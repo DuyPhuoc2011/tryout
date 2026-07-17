@@ -24,9 +24,9 @@ const mono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Tryout: Do the job. Not watch it.',
+  title: 'Tryout - DevOps/SRE scenarios from real incidents',
   description:
-    'Tryout is a technical interview where every role but yours is AI. Ship a real pull request on a real codebase, and get graded on the code and the craft around it.',
+    'Real incidents from a production GCP stack, packaged as hands-on labs: the Terraform, the configs, the runbook.',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

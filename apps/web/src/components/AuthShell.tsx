@@ -47,21 +47,21 @@ export function AuthShell({ children }: { children: ReactNode }) {
               margin: '0 0 var(--space-3)',
             }}
           >
-            Do the job.
+            Deploying is easy.
             <br />
-            Not{' '}
+            Staying{' '}
             <span style={{ color: 'var(--color-signal, oklch(84% 0.14 86))', fontWeight: 700 }}>
-              watch
+              up
             </span>{' '}
-            it.
+            is the job.
           </p>
           <p style={{ maxWidth: '34ch', color: 'oklch(86% 0.03 264)', lineHeight: 1.55, margin: 0 }}>
-            Join a software team where every other role is an AI teammate. Ship a real pull
-            request on a real codebase, and get graded on the code and the craft around it.
+            Real incidents from a production GCP stack, packaged as hands-on labs: the
+            Terraform, the configs, the runbook.
           </p>
         </div>
         <span style={{ color: 'oklch(78% 0.03 264)', fontSize: 'var(--text-sm)' }}>
-          The AI-resistant junior starts here.
+          Learn Day-2 operations by walking the recovery.
         </span>
       </aside>
 

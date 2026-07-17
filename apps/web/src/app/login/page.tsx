@@ -19,7 +19,8 @@ export default function LoginPage() {
       const res = await api.login(email, password);
       localStorage.setItem('tryout_token', res.token);
       localStorage.setItem('tryout_email', res.user.email);
-      window.location.href = '/dashboard';
+      const next = new URLSearchParams(window.location.search).get('next');
+      window.location.href = next && next.startsWith('/') ? next : '/home';
     } catch {
       setError('Invalid email or password.');
     } finally {
@@ -31,7 +32,7 @@ export default function LoginPage() {
     <AuthShell>
       <h1 style={{ fontSize: 'var(--text-lg)', margin: '0 0 var(--space-1)' }}>Welcome back</h1>
       <p style={{ color: 'var(--color-muted)', margin: '0 0 var(--space-4)' }}>
-        Log in to pick up where your team left off.
+        Log in to pick up where you left off.
       </p>
       <form onSubmit={onSubmit} aria-label="Log in">
         <FieldStack>
