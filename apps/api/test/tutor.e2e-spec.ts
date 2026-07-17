@@ -25,8 +25,15 @@ describe('Tutor (e2e)', () => {
   let token: string;
   let listingId: string;
   let userId: string;
+  // Second listing with NULL tutor_brief — drives the 422 path.
+  let noBriefListingId: string;
+  // Fresh user isolated for the 429 cost-guard test.
+  let limitToken: string;
+  let limitUserId: string;
   const slug = `e2e-tutor-${Date.now()}`;
+  const noBriefSlug = `e2e-tutor-nobrief-${Date.now()}`;
   const email = `tutor-${Date.now()}@example.com`;
+  const limitEmail = `tutor-limit-${Date.now()}@example.com`;
 
   beforeAll(async () => {
     sql = postgres(process.env.DATABASE_URL!);
@@ -38,6 +45,15 @@ describe('Tutor (e2e)', () => {
          'FAULT: disk fills. Guide one phase at a time.', 'published')
       RETURNING id`;
     listingId = listing.id as string;
+
+    const [noBrief] = await sql`
+      INSERT INTO scenario_listings
+        (slug, title, tagline, story, contents, price_cents, currency, content_repo, tutor_brief, status)
+      VALUES
+        (${noBriefSlug}, 'E2E Tutor No Brief', 't', 's', 'c', 2900, 'usd', 'repo-y',
+         NULL, 'published')
+      RETURNING id`;
+    noBriefListingId = noBrief.id as string;
 
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(StripeService)
@@ -57,14 +73,22 @@ describe('Tutor (e2e)', () => {
     token = res.body.token;
     const [u] = await sql`SELECT id FROM users WHERE email = ${email}`;
     userId = u.id as string;
+
+    const limitRes = await request(app.getHttpServer())
+      .post('/auth/signup')
+      .send({ email: limitEmail, password: 'sup3r-secret-pw' })
+      .expect(201);
+    limitToken = limitRes.body.token;
+    const [lu] = await sql`SELECT id FROM users WHERE email = ${limitEmail}`;
+    limitUserId = lu.id as string;
   });
 
   afterAll(async () => {
-    await sql`DELETE FROM tutor_messages WHERE listing_id = ${listingId}`;
-    await sql`DELETE FROM tutor_threads WHERE listing_id = ${listingId}`;
-    await sql`DELETE FROM purchases WHERE listing_id = ${listingId}`;
-    await sql`DELETE FROM scenario_listings WHERE id = ${listingId}`;
-    await sql`DELETE FROM users WHERE id = ${userId}`;
+    await sql`DELETE FROM tutor_messages WHERE user_id IN (${userId}, ${limitUserId})`;
+    await sql`DELETE FROM tutor_threads WHERE user_id IN (${userId}, ${limitUserId})`;
+    await sql`DELETE FROM purchases WHERE listing_id IN (${listingId}, ${noBriefListingId})`;
+    await sql`DELETE FROM scenario_listings WHERE id IN (${listingId}, ${noBriefListingId})`;
+    await sql`DELETE FROM users WHERE id IN (${userId}, ${limitUserId})`;
     await sql.end();
     await app.close();
   });
@@ -98,6 +122,38 @@ describe('Tutor (e2e)', () => {
     expect(get.body.messages).toHaveLength(2);
     expect(get.body.messages[0].role).toBe('user');
     expect(get.body.messages[1].role).toBe('assistant');
+  });
+
+  it('422 when the scenario has no tutor brief', async () => {
+    await sql`
+      INSERT INTO purchases (user_id, listing_id, amount_cents, status)
+      VALUES (${userId}, ${noBriefListingId}, 2900, 'invite_sent')`;
+
+    await request(app.getHttpServer())
+      .post(`/tutor/${noBriefListingId}/messages`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ content: 'help' })
+      .expect(422);
+  });
+
+  it('429 when the daily message limit is reached', async () => {
+    await sql`
+      INSERT INTO purchases (user_id, listing_id, amount_cents, status)
+      VALUES (${limitUserId}, ${listingId}, 2900, 'invite_sent')`;
+
+    // TUTOR_DAILY_MESSAGE_LIMIT is 3 in the e2e env. Seed 3 user messages so the
+    // guard (counts user+role, any listing) trips on the next post.
+    for (let i = 0; i < 3; i++) {
+      await sql`
+        INSERT INTO tutor_messages (user_id, listing_id, role, content)
+        VALUES (${limitUserId}, ${listingId}, 'user', ${'msg ' + i})`;
+    }
+
+    await request(app.getHttpServer())
+      .post(`/tutor/${listingId}/messages`)
+      .set('Authorization', `Bearer ${limitToken}`)
+      .send({ content: 'one more please' })
+      .expect(429);
   });
 
   it('401 without a token', async () => {
