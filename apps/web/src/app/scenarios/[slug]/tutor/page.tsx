@@ -1,6 +1,6 @@
 'use client';
 
-import { use, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { api, type TutorMessage } from '@/lib/api';
@@ -8,8 +8,8 @@ import styles from './tutor.module.css';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
 
-export default function TutorPage({ params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = use(params);
+export default function TutorPage({ params }: { params: { slug: string } }) {
+  const { slug } = params;
   const router = useRouter();
   const [listingId, setListingId] = useState<string | null>(null);
   const [title, setTitle] = useState('');
@@ -28,7 +28,7 @@ export default function TutorPage({ params }: { params: Promise<{ slug: string }
     }
     (async () => {
       try {
-        const res = await fetch(`${API_URL}/catalog/${slug}`);
+        const res = await fetch(`${API_URL}/catalog/${encodeURIComponent(slug)}`);
         if (!res.ok) throw new Error('Scenario not found');
         const listing = (await res.json()) as { id: string; title: string };
         setListingId(listing.id);
@@ -115,7 +115,7 @@ export default function TutorPage({ params }: { params: Promise<{ slug: string }
           ))}
           <div ref={endRef} />
         </div>
-        {error && <p className={styles.error}>{error}</p>}
+        {error && <p role="alert" className={styles.error}>{error}</p>}
         <div className={styles.form}>
           <textarea
             className={styles.input}
