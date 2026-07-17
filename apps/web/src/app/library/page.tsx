@@ -69,6 +69,9 @@ export default function LibraryPage() {
                 Open repository
               </a>
             )}
+            {p.status === 'invite_sent' && (
+              <Link href={`/scenarios/${p.listingSlug}/tutor`}>Open tutor</Link>
+            )}
             {RETRYABLE.includes(p.status) && (
               <button onClick={() => retry(p.id)} disabled={retrying === p.id}>
                 {retrying === p.id ? 'Re-sending…' : 'Re-send invite'}

@@ -119,7 +119,7 @@ export default function HomePage() {
           <ul className={styles.grid}>
             {listings.map((l) => {
               const own = owned.get(l.slug);
-              const href = own ? '/library' : `/scenarios/${l.slug}`;
+              const href = own ? `/scenarios/${l.slug}/tutor` : `/scenarios/${l.slug}`;
               return (
                 <li key={l.id}>
                   <Link href={href} className={styles.cardLink}>
@@ -137,7 +137,7 @@ export default function HomePage() {
                       <div className={styles.cardFoot}>
                         {own ? (
                           <span className={styles.action}>
-                            {own === 'ready' ? 'Open in library →' : 'View status →'}
+                            {own === 'ready' ? 'Open tutor →' : 'View status →'}
                           </span>
                         ) : (
                           <>
