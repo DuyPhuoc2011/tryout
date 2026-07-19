@@ -50,9 +50,18 @@ const NUMERIC_USAGE_FIELDS = [
  * runtime. Left unguarded, an out-of-set tier indexes the rate table to
  * `undefined`, and `undefined * windowHours` silently becomes `NaN` instead
  * of a clear, greppable error.
+ *
+ * Checks `typeof table[tier] !== 'number'` rather than `tier in table`: `in`
+ * walks the prototype chain, so every `Object.prototype` member (
+ * `constructor`, `toString`, `hasOwnProperty`, `valueOf`, ...) is inherited
+ * by the plain-object rate tables and would pass an `in`-based check even
+ * though `table[tier]` is a built-in function, not a rate -- reintroducing
+ * the exact silent NaN this guard exists to prevent. The `typeof` check
+ * additionally catches a malformed rate table with a non-numeric entry,
+ * which `hasOwnProperty` alone would not.
  */
 function requireKnownTier(tier: string, table: Record<string, number>, field: string): void {
-  if (!(tier in table)) {
+  if (typeof table[tier] !== 'number') {
     throw new Error(`costFromUsage: ${field} is not a recognized tier`);
   }
 }

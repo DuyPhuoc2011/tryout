@@ -164,5 +164,36 @@ describe('costFromUsage', () => {
         ),
       ).not.toThrow();
     });
+
+    // Reviewer finding: `tier in table` walks the prototype chain, so every
+    // Object.prototype key (inherited by any plain object literal, including
+    // the rate tables) passes an `in`-based guard even though `table[tier]`
+    // is not a rate — it is a built-in function/method. That reintroduces the
+    // exact silent `undefined * windowHours` -> NaN this guard exists to
+    // prevent. These payloads are reachable from the same harness/JSON
+    // boundary the guard's own doc comment cites.
+    describe.each(['constructor', 'toString', 'hasOwnProperty', 'valueOf'])(
+      'prototype-chain bypass: tier = %s',
+      (prototypeKey) => {
+        it(`rejects cacheTier = "${prototypeKey}" when the cache is enabled, naming the field`, () => {
+          expect(() =>
+            costFromUsage(
+              {
+                ...usage,
+                cacheEnabled: true,
+                cacheTier: prototypeKey as Usage['cacheTier'],
+              },
+              testRates,
+            ),
+          ).toThrow(/cacheTier/);
+        });
+
+        it(`rejects dbTier = "${prototypeKey}", naming the field`, () => {
+          expect(() =>
+            costFromUsage({ ...usage, dbTier: prototypeKey as Usage['dbTier'] }, testRates),
+          ).toThrow(/dbTier/);
+        });
+      },
+    );
   });
 });
