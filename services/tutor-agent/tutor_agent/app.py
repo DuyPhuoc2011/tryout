@@ -1,10 +1,12 @@
 from fastapi import Depends, FastAPI, Header, HTTPException
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
-from tutor_agent.graph import build_graph
+from tutor_agent.graph import build_graph, system_prompt
 from tutor_agent.llm import get_chat_model
 from tutor_agent.models import TurnRequest, TurnResponse
 from tutor_agent.phases import FIRST_PHASE
 from tutor_agent.settings import settings
+from tutor_agent.tools import make_tools
 
 app = FastAPI(title="Tutor Agent")
 
@@ -31,15 +33,17 @@ def turn(
     model=Depends(model_provider),
 ) -> TurnResponse:
     phase = req.phase or FIRST_PHASE
-    graph = build_graph(model)
+    tools = make_tools(req.scenario.tutor_brief, judge_model=model)
+    graph = build_graph(model, tools)
+
+    messages = [SystemMessage(system_prompt(phase, req.scenario))]
+    for t in req.history:
+        messages.append(
+            AIMessage(t.content) if t.role == "assistant" else HumanMessage(t.content)
+        )
+    messages.append(HumanMessage(req.message))
+
     out = graph.invoke(
-        {
-            "scenario": req.scenario,
-            "phase": phase,
-            "history": req.history,
-            "message": req.message,
-            "reply": "",
-            "next_phase": phase,
-        }
+        {"messages": messages, "phase": phase, "reply": "", "next_phase": phase}
     )
     return TurnResponse(reply=out["reply"], phase=out["next_phase"])
