@@ -41,6 +41,23 @@ const NUMERIC_USAGE_FIELDS = [
 ] as const;
 
 /**
+ * Throws when `tier` is not a key of `table`, naming `field` so the caller
+ * can trace the bad input back to its source.
+ *
+ * `Usage` crosses the same harness/JSON boundary that `RunMetrics.opsEvents`
+ * crosses in score.ts, so TypeScript's compile-time guarantee that
+ * `cacheTier`/`dbTier` are one of the known literals does not hold at
+ * runtime. Left unguarded, an out-of-set tier indexes the rate table to
+ * `undefined`, and `undefined * windowHours` silently becomes `NaN` instead
+ * of a clear, greppable error.
+ */
+function requireKnownTier(tier: string, table: Record<string, number>, field: string): void {
+  if (!(tier in table)) {
+    throw new Error(`costFromUsage: ${field} is not a recognized tier`);
+  }
+}
+
+/**
  * Convert observed resource usage into a cost breakdown.
  *
  * Deterministic and auditable by design: the same usage vector always yields
@@ -59,6 +76,14 @@ export function costFromUsage(usage: Usage, rates: RateTable = GCP_RATES): CostB
   if (usage.windowHours <= 0) {
     throw new Error('costFromUsage: windowHours must be greater than zero');
   }
+
+  // cacheTier is only guarded when the cache is enabled — it is never
+  // indexed otherwise (see the `cacheEnabled ? ... : 0` line item below).
+  // dbTier has no such flag; it is always indexed.
+  if (usage.cacheEnabled) {
+    requireKnownTier(usage.cacheTier, rates.redisGibHour, 'cacheTier');
+  }
+  requireKnownTier(usage.dbTier, rates.dbHour, 'dbTier');
 
   const lineItems = {
     cloudRunActive:

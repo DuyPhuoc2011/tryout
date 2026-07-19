@@ -135,5 +135,34 @@ describe('costFromUsage', () => {
         costFromUsage({ ...usage, cloudRunIdleGibSeconds: Infinity }, testRates),
       ).toThrow(/cloudRunIdleGibSeconds/);
     });
+
+    // Finding 3: cacheTier/dbTier cross the same JSON/harness boundary that
+    // the numeric fields above do, so an out-of-set tier must be caught here
+    // -- not left to silently produce `undefined * windowHours` -> NaN, which
+    // scoreRun would later report as a generic "monthlyUsd must be finite"
+    // error that names the symptom, not the source.
+    it('rejects an unrecognized cacheTier when the cache is enabled, naming the field', () => {
+      expect(() =>
+        costFromUsage(
+          { ...usage, cacheEnabled: true, cacheTier: 'ultra-9000' as Usage['cacheTier'] },
+          testRates,
+        ),
+      ).toThrow(/cacheTier/);
+    });
+
+    it('rejects an unrecognized dbTier, naming the field', () => {
+      expect(() =>
+        costFromUsage({ ...usage, dbTier: 'jumbo' as Usage['dbTier'] }, testRates),
+      ).toThrow(/dbTier/);
+    });
+
+    it('does not require cacheTier to be recognized when the cache is disabled, since it is never indexed in that case', () => {
+      expect(() =>
+        costFromUsage(
+          { ...usage, cacheEnabled: false, cacheTier: 'ultra-9000' as Usage['cacheTier'] },
+          testRates,
+        ),
+      ).not.toThrow();
+    });
   });
 });
