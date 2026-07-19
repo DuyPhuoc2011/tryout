@@ -67,13 +67,26 @@ describe('renderTfvars', () => {
       'cache_tier',
       'db_tier',
     ]);
-    for (const key of Object.keys(renderTfvars(design, 'env-abc123'))) {
-      expect(allowed.has(key)).toBe(true);
-    }
+    expect(new Set(Object.keys(renderTfvars(design, 'env-abc123')))).toEqual(allowed);
   });
 
   it('rejects an environment id that is not a safe slug', () => {
     expect(() => renderTfvars(design, 'env abc; rm -rf /')).toThrow(/environmentId/);
     expect(() => renderTfvars(design, '')).toThrow(/environmentId/);
+  });
+
+  it('sanitizes a long, control-character-laden environment id in the thrown error', () => {
+    const malicious = `env-${'a'.repeat(1000)}\n\tmore\revil`;
+    let thrown: Error | undefined;
+    try {
+      renderTfvars(design, malicious);
+    } catch (error) {
+      thrown = error as Error;
+    }
+    expect(thrown).toBeInstanceOf(Error);
+    expect(thrown!.message).not.toMatch(/\n/);
+    expect(thrown!.message).not.toMatch(/\t/);
+    expect(thrown!.message).not.toMatch(/\r/);
+    expect(thrown!.message.length).toBeLessThanOrEqual(400);
   });
 });

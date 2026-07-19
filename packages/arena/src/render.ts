@@ -1,4 +1,5 @@
 import type { DesignConfig } from './schema';
+import { sanitizeText } from './text-safety';
 
 /**
  * Variables for the first-party Terraform module that builds a buyer
@@ -29,13 +30,19 @@ const ENVIRONMENT_ID_PATTERN = /^env-[a-z0-9]{6,32}$/;
 /**
  * Convert a validated design into Terraform variables.
  *
- * Takes an already-parsed DesignConfig, so it cannot be reached with untrusted
- * input: parseDesign is the only entry point for raw text.
+ * `design` is trust-bounded: it is an already-parsed `DesignConfig`, and
+ * `parseDesign` is the only entry point that produces one from raw text, so
+ * this function cannot be reached with untrusted design input. `environmentId`
+ * carries no such guarantee — it is a second, independent parameter that will
+ * most likely arrive from a route parameter once a caller exists. It is
+ * validated against a strict slug pattern below, and sanitized before being
+ * echoed into the error message: regex rejection alone does not make a value
+ * safe to render back to a caller.
  */
 export function renderTfvars(design: DesignConfig, environmentId: string): ArenaTfvars {
   if (!ENVIRONMENT_ID_PATTERN.test(environmentId)) {
     throw new Error(
-      `renderTfvars: environmentId must match ${ENVIRONMENT_ID_PATTERN}, got "${environmentId}"`,
+      `renderTfvars: environmentId must match ${ENVIRONMENT_ID_PATTERN.source}, got "${sanitizeText(environmentId)}"`,
     );
   }
 

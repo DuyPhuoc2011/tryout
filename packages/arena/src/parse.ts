@@ -1,5 +1,6 @@
 import { parse as parseYaml } from 'yaml';
 import { designSchema, type DesignConfig } from './schema';
+import { sanitizeText } from './text-safety';
 
 export interface ParseError {
   /** Dotted path to the offending field, or 'document' for whole-file failures. */
@@ -15,47 +16,6 @@ export type ParseResult =
  *  bytes; anything larger is either a mistake or an attempt to exhaust the
  *  parser. */
 const MAX_INPUT_LENGTH = 16 * 1024;
-
-/** Upper bound on a single error's `path`/`message` once rendered onto a
- *  customer pull request. Both the YAML parser and Zod interpolate
- *  attacker-controlled text verbatim into their output, so neither is
- *  trusted as-is. */
-const MAX_TEXT_LENGTH = 300;
-const TRUNCATION_MARKER = '... [truncated]';
-
-/** True for ASCII control characters (code points 0-31) and DEL (127) —
- *  anything that could break a single-line rendering, such as newlines
- *  or tabs. */
-function isControlCharCode(code: number): boolean {
-  return code <= 31 || code === 127;
-}
-
-function escapeControlChar(char: string, code: number): string {
-  if (char === '\n') return '\\n';
-  if (char === '\r') return '\\r';
-  if (char === '\t') return '\\t';
-  return `\\x${code.toString(16).padStart(2, '0')}`;
-}
-
-/**
- * Make attacker-influenced text safe to render as a single line in a
- * customer-facing pull request comment: escape control characters (so a
- * message can never inject extra lines or spoof additional entries) and
- * cap the length (so a crafted document cannot blow up the rendered output).
- */
-function sanitizeText(text: string): string {
-  let singleLine = '';
-  for (const char of text) {
-    const code = char.codePointAt(0) ?? 0;
-    singleLine += isControlCharCode(code) ? escapeControlChar(char, code) : char;
-  }
-
-  if (singleLine.length <= MAX_TEXT_LENGTH) {
-    return singleLine;
-  }
-
-  return singleLine.slice(0, MAX_TEXT_LENGTH - TRUNCATION_MARKER.length) + TRUNCATION_MARKER;
-}
 
 function sanitizeError(error: ParseError): ParseError {
   return { path: sanitizeText(error.path), message: sanitizeText(error.message) };
