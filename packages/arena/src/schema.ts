@@ -22,7 +22,11 @@ const cloudRunApiSchema = z
     cpu: cpuSchema,
     memory: memorySchema,
   })
-  .strict();
+  .strict()
+  .refine((api) => api.max_instances >= api.min_instances, {
+    message: 'max_instances must be greater than or equal to min_instances',
+    path: ['max_instances'],
+  });
 
 const workersSchema = z
   .object({
