@@ -30,6 +30,16 @@ export interface CostBreakdown {
   monthlyUsd: number;
 }
 
+/** Usage fields that must be finite, non-negative numbers. */
+const NUMERIC_USAGE_FIELDS = [
+  'windowHours',
+  'cloudRunActiveVcpuSeconds',
+  'cloudRunActiveGibSeconds',
+  'cloudRunIdleVcpuSeconds',
+  'cloudRunIdleGibSeconds',
+  'requests',
+] as const;
+
 /**
  * Convert observed resource usage into a cost breakdown.
  *
@@ -39,6 +49,13 @@ export interface CostBreakdown {
  * make two identical designs score differently.
  */
 export function costFromUsage(usage: Usage, rates: RateTable = GCP_RATES): CostBreakdown {
+  for (const field of NUMERIC_USAGE_FIELDS) {
+    const value = usage[field];
+    if (!Number.isFinite(value) || value < 0) {
+      throw new Error(`costFromUsage: ${field} must be a finite, non-negative number`);
+    }
+  }
+
   if (usage.windowHours <= 0) {
     throw new Error('costFromUsage: windowHours must be greater than zero');
   }
