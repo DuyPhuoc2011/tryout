@@ -2,6 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **STATUS: ✅ COMPLETE (2026-07-19).** All 14 tasks shipped on `feat/ai-tutor-p1`. Verified green: tutor-agent pytest 7/7, api unit 34/34, api e2e 20/20 (incl. tutor ownership/round-trip/resume). See acceptance section at the bottom.
+
 **Goal:** Ship a working guided tutor: a Python LangGraph agent behind the NestJS API, per-scenario chat with persisted transcript + drill phase, owners-only.
 
 **Architecture:** web → NestJS (auth, ownership, cost guard, persistence) → Python service (FastAPI + LangGraph, stateless) → LLM. NestJS never lets the browser touch Python; it calls Python with an internal token and persists the result.
@@ -1533,11 +1535,13 @@ git commit -m "docs: note tutor-agent python service"
 
 ---
 
-## Done — P1 acceptance
+## Done — P1 acceptance ✅ (verified 2026-07-19)
 
-- Python agent: `pytest` green (phases, graph, endpoint).
-- NestJS: unit suite green; e2e green including tutor ownership/round-trip/resume.
+- Python agent: `pytest` green — **7 passed** (phases 2, graph 3, endpoint 2).
+- NestJS: unit **34 passed**; e2e **20 passed** including tutor ownership/round-trip/resume (`test/tutor.e2e-spec.ts`).
 - Web: typecheck clean; owned scenarios link to a working tutor chat.
 - A buyer of a scenario with a `tutorBrief` can chat with the tutor, see the phase advance, and resume after reload.
+
+All 14 tasks committed on `feat/ai-tutor-p1` (last: `ceb0711` docs). Task checkboxes above left unflipped; this section is the authoritative status.
 
 **Next (not this plan):** P2 tools (`grade_postmortem`, `lookup_runbook`), P3 RAG over runbook (pgvector), streaming, and Cloud Run deployment of the Python service.
