@@ -94,6 +94,14 @@ describe('designSchema rejects hostile input', () => {
       withApi({ min_instances: 5, max_instances: 2 }),
     );
     expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues).toContainEqual(
+        expect.objectContaining({
+          code: 'custom',
+          path: ['api', 'max_instances'],
+        }),
+      );
+    }
   });
 
   it('rejects a string where a number is required', () => {
