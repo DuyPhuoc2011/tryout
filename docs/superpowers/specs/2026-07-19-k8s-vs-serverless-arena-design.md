@@ -90,6 +90,15 @@ db:
   tier: micro | small | medium
 ```
 
+**Deliberate coupling that must be documented for the buyer:** workers have no
+independent scaling ceiling — `worker_max_instances` mirrors `api.max_instances`.
+A separate worker ceiling would be one more lever to tune without teaching anything
+the others do not. But the consequence is real and non-obvious: raising the API
+ceiling to 20 for burst headroom also raises the worker fleet ceiling to 20, roughly
+doubling worst-case instance count and therefore worst-case cost. Because cost is a
+scored axis, a buyer must not discover this from their score. State it in the
+scenario's requirements document alongside the lever table.
+
 ## 5. Traffic Profiles and the Crossover
 
 | | P1 "Launch" | P2 "Growth" |
