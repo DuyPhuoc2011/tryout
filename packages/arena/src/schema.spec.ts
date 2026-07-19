@@ -112,4 +112,58 @@ describe('designSchema rejects hostile input', () => {
     expect(designSchema.safeParse(null).success).toBe(false);
     expect(designSchema.safeParse([validDesign]).success).toBe(false);
   });
+
+  describe('worker/api instance-count invariant', () => {
+    it('rejects worker min_instances greater than api max_instances when workers run as a separate service', () => {
+      const result = designSchema.safeParse({
+        ...validDesign,
+        api: { ...validDesign.api, min_instances: 1, max_instances: 1 },
+        workers: { placement: 'separate_service', min_instances: 3 },
+      });
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.issues).toContainEqual(
+          expect.objectContaining({
+            code: 'custom',
+            path: ['workers', 'min_instances'],
+          }),
+        );
+      }
+    });
+
+    it('allows worker min_instances equal to api max_instances', () => {
+      const result = designSchema.safeParse({
+        ...validDesign,
+        api: { ...validDesign.api, min_instances: 1, max_instances: 3 },
+        workers: { placement: 'separate_service', min_instances: 3 },
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it('allows worker min_instances greater than api max_instances when workers run in-process, since there is no separate worker service to bound', () => {
+      const result = designSchema.safeParse({
+        ...validDesign,
+        api: { ...validDesign.api, min_instances: 1, max_instances: 1 },
+        workers: { placement: 'in_process', min_instances: 3 },
+      });
+      expect(result.success).toBe(true);
+    });
+  });
+
+  describe('cpu/memory floor invariant', () => {
+    it('rejects cpu: 0.5 with memory: 2Gi (below the documented Cloud Run minimum vCPU for that memory tier)', () => {
+      const result = designSchema.safeParse(withApi({ cpu: 0.5, memory: '2Gi' }));
+      expect(result.success).toBe(false);
+    });
+
+    it('allows cpu: 1 with memory: 2Gi', () => {
+      const result = designSchema.safeParse(withApi({ cpu: 1, memory: '2Gi' }));
+      expect(result.success).toBe(true);
+    });
+
+    it('allows cpu: 0.5 with memory: 1Gi (at the documented boundary)', () => {
+      const result = designSchema.safeParse(withApi({ cpu: 0.5, memory: '1Gi' }));
+      expect(result.success).toBe(true);
+    });
+  });
 });

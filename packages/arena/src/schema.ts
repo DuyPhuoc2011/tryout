@@ -26,6 +26,18 @@ const cloudRunApiSchema = z
   .refine((api) => api.max_instances >= api.min_instances, {
     message: 'max_instances must be greater than or equal to min_instances',
     path: ['max_instances'],
+  })
+  // Cloud Run requires a CPU floor for higher memory tiers: "A minimum of 0.5
+  // vCPU is needed to set a memory limit greater than 512MiB. A minimum of 1
+  // vCPU is needed to set a memory limit greater than 1GiB." Our cpu enum's
+  // floor (0.5) already satisfies the >512MiB rule for every combination in
+  // this schema, so the only illegal pairing within {0.5, 1, 2} x {512Mi,
+  // 1Gi, 2Gi} is cpu: 0.5 with memory: 2Gi.
+  // Source: https://cloud.google.com/run/docs/configuring/services/cpu
+  // Verified: 2026-07-19.
+  .refine((api) => api.memory !== '2Gi' || api.cpu >= 1, {
+    message: 'memory: 2Gi requires cpu >= 1 (Cloud Run minimum vCPU for this memory tier)',
+    path: ['cpu'],
   });
 
 const workersSchema = z
@@ -57,6 +69,23 @@ export const designSchema = z
     cache: cacheSchema,
     db: dbSchema,
   })
-  .strict();
+  .strict()
+  // Lives at the top level, not on either sub-schema, because it needs both
+  // the api and workers blocks. Only meaningful when workers run as a
+  // separate Cloud Run service: in-process workers share the api service's
+  // instances, so there is no separate worker floor/ceiling pair to compare.
+  // Without this, a schema-valid design can render worker_min_instances >
+  // worker_max_instances (render.ts pins worker_max_instances to
+  // api.max_instances), which Cloud Run rejects at apply time.
+  .refine(
+    (design) =>
+      design.workers.placement !== 'separate_service' ||
+      design.workers.min_instances <= design.api.max_instances,
+    {
+      message:
+        'workers.min_instances must be less than or equal to api.max_instances when workers.placement is separate_service',
+      path: ['workers', 'min_instances'],
+    },
+  );
 
 export type DesignConfig = z.infer<typeof designSchema>;
