@@ -59,6 +59,21 @@ function requireFiniteNonNegative(value: number, field: string): void {
 }
 
 /**
+ * Throws when `value` is not a non-null object, naming `field` in the error.
+ *
+ * Same reasoning as `requireValidOpsEvents`: `metrics`, `par`, and `par.slo`
+ * cross a JSON/HTTP boundary before reaching this function, so TypeScript's
+ * compile-time guarantee does not hold at runtime. Left unguarded, a missing
+ * `metrics` or `par.slo` throws a raw, unnamed `TypeError` on the first
+ * dereference instead of a clear, greppable error.
+ */
+function requireNonNullObject(value: unknown, field: string): void {
+  if (typeof value !== 'object' || value === null) {
+    throw new Error(`scoreRun: ${field} must be an object`);
+  }
+}
+
+/**
  * Validate that `metrics.opsEvents` is a non-empty array of well-shaped
  * events before anything iterates over it.
  *
@@ -106,6 +121,10 @@ function requireValidOpsEvents(opsEvents: unknown): asserts opsEvents is OpsEven
  * mode is worse than a thrown error, so we refuse to score bad telemetry.
  */
 function validateScoreInputs(metrics: RunMetrics, monthlyUsd: number, par: ProfilePar): void {
+  requireNonNullObject(metrics, 'metrics');
+  requireNonNullObject(par, 'par');
+  requireNonNullObject(par.slo, 'par.slo');
+
   requireFiniteNonNegative(metrics.apiP95Ms, 'metrics.apiP95Ms');
   requireFiniteNonNegative(metrics.jobStartP95Ms, 'metrics.jobStartP95Ms');
   requireFiniteNonNegative(metrics.errorRate, 'metrics.errorRate');

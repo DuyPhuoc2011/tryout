@@ -285,4 +285,31 @@ describe('scoreRun', () => {
       expect(() => scoreRun(malformed, 18, par)).toThrow(/metrics\.opsEvents\[0\]\.sloHeld/);
     });
   });
+
+  describe('metrics/par shape validation', () => {
+    // Finding 6: metrics, par, and par.slo cross the same JSON/HTTP boundary
+    // that opsEvents does, so TypeScript's compile-time guarantee does not
+    // hold at runtime. Anchored to a named message, same reasoning as the
+    // opsEvents cases above: a native "Cannot read properties of null"
+    // TypeError would not match these patterns.
+    it('rejects a null metrics argument, naming the field, instead of a raw TypeError', () => {
+      expect(() => scoreRun(null as unknown as RunMetrics, 18, par)).toThrow(
+        /^scoreRun: metrics must be an object/,
+      );
+    });
+
+    it('rejects a null par argument, naming the field, instead of a raw TypeError', () => {
+      expect(() => scoreRun(passingMetrics, 18, null as unknown as ProfilePar)).toThrow(
+        /^scoreRun: par must be an object/,
+      );
+    });
+
+    it('rejects a missing par.slo, naming the field, instead of a raw TypeError', () => {
+      const { slo: _omit, ...restPar } = par;
+      const malformed = restPar as unknown as ProfilePar;
+      expect(() => scoreRun(passingMetrics, 18, malformed)).toThrow(
+        /^scoreRun: par\.slo must be an object/,
+      );
+    });
+  });
 });
