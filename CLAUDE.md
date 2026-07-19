@@ -21,6 +21,8 @@ H:\TRYOUT\
 │   ├── db/           — Drizzle ORM schema, migrations, listing CLI
 │   ├── shared/       — shared TypeScript types (AuthResponse)
 │   └── llm/          — provider-agnostic LLM router (WIP, not wired into the API)
+├── services/
+│   └── tutor-agent/  — Python FastAPI + LangGraph tutor agent (P1)
 ├── infra/terraform/  — GCP deployment (Cloud Run, Postgres VM, Memorystore)
 └── docs/
     ├── incidents/    — real GCP incident writeups (scenario source material)
@@ -61,6 +63,9 @@ DATABASE_URL=postgres://tryout:tryout@localhost:5432/tryout \
 
 # 5. Start web (dev)
 NEXT_PUBLIC_API_URL=http://localhost:3001 pnpm --filter @tryout/web dev
+
+# 6. Tutor agent (Python): cd services/tutor-agent && .venv/Scripts/uvicorn tutor_agent.app:app --port 8000
+#    NestJS must have TUTOR_AGENT_URL + TUTOR_AGENT_TOKEN (matching the service) set.
 ```
 
 ## Key Source Files
