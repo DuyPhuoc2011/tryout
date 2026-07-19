@@ -1,3 +1,5 @@
+import { sanitizeText } from './text-safety';
+
 export interface SloTargets {
   apiP95Ms: number;
   jobStartP95Ms: number;
@@ -38,6 +40,40 @@ export interface Verdict {
   monthlyUsd: number;
 }
 
+/** Throws when `value` is not a finite, non-negative number, naming `field` in
+ *  the error so the caller can trace the bad input back to its source. */
+function requireFiniteNonNegative(value: number, field: string): void {
+  if (!Number.isFinite(value) || value < 0) {
+    throw new Error(`scoreRun: ${field} must be a finite, non-negative number`);
+  }
+}
+
+/**
+ * Validate every numeric input before scoring anything.
+ *
+ * These values come from our own metrics harness and our own profile
+ * configuration, not from untrusted customer input — so throwing is correct
+ * here (unlike parseDesign, which returns a result object for genuinely
+ * untrusted data). A NaN metric silently passes every `>` comparison, which
+ * would certify a design as good on the basis of no evidence; that failure
+ * mode is worse than a thrown error, so we refuse to score bad telemetry.
+ */
+function validateScoreInputs(metrics: RunMetrics, monthlyUsd: number, par: ProfilePar): void {
+  requireFiniteNonNegative(metrics.apiP95Ms, 'metrics.apiP95Ms');
+  requireFiniteNonNegative(metrics.jobStartP95Ms, 'metrics.jobStartP95Ms');
+  requireFiniteNonNegative(metrics.errorRate, 'metrics.errorRate');
+  requireFiniteNonNegative(monthlyUsd, 'monthlyUsd');
+
+  requireFiniteNonNegative(par.slo.apiP95Ms, 'par.slo.apiP95Ms');
+  requireFiniteNonNegative(par.slo.jobStartP95Ms, 'par.slo.jobStartP95Ms');
+  requireFiniteNonNegative(par.slo.maxErrorRate, 'par.slo.maxErrorRate');
+  requireFiniteNonNegative(par.budgetCeilingUsd, 'par.budgetCeilingUsd');
+
+  if (!Number.isFinite(par.parMonthlyUsd) || par.parMonthlyUsd <= 0) {
+    throw new Error('scoreRun: par.parMonthlyUsd must be a finite, positive number');
+  }
+}
+
 /**
  * Score one run on three axes.
  *
@@ -51,6 +87,8 @@ export function scoreRun(
   monthlyUsd: number,
   par: ProfilePar,
 ): Verdict {
+  validateScoreInputs(metrics, monthlyUsd, par);
+
   const failures: ScoreFailure[] = [];
 
   if (metrics.apiP95Ms > par.slo.apiP95Ms) {
@@ -81,7 +119,10 @@ export function scoreRun(
 
   for (const event of metrics.opsEvents) {
     if (!event.sloHeld) {
-      failures.push({ axis: 'ops', detail: `SLO broke during "${event.name}"` });
+      failures.push({
+        axis: 'ops',
+        detail: `SLO broke during "${sanitizeText(event.name)}"`,
+      });
     }
   }
 
