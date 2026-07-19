@@ -1,4 +1,4 @@
-import { scoreRun, type RunMetrics, type ProfilePar } from './score';
+import { scoreRun, type RunMetrics, type ProfilePar, type Verdict } from './score';
 
 const par: ProfilePar = {
   profile: 'P1',
@@ -77,85 +77,137 @@ describe('scoreRun', () => {
     expect(verdict.failures.map((f) => f.axis).sort()).toEqual(['cost', 'slo']);
   });
 
+  describe('boundary: meeting a target exactly passes', () => {
+    // Every SLO/cost comparison uses strict `>`. These pin that semantic so
+    // flipping any single `>` to `>=` fails a test.
+    it('passes when apiP95Ms exactly equals the SLO target', () => {
+      const verdict = scoreRun({ ...passingMetrics, apiP95Ms: par.slo.apiP95Ms }, 18, par);
+      expect(verdict.passed).toBe(true);
+    });
+
+    it('passes when jobStartP95Ms exactly equals the SLO target', () => {
+      const verdict = scoreRun(
+        { ...passingMetrics, jobStartP95Ms: par.slo.jobStartP95Ms },
+        18,
+        par,
+      );
+      expect(verdict.passed).toBe(true);
+    });
+
+    it('passes when errorRate exactly equals the SLO target', () => {
+      const verdict = scoreRun({ ...passingMetrics, errorRate: par.slo.maxErrorRate }, 18, par);
+      expect(verdict.passed).toBe(true);
+    });
+
+    it('passes when monthlyUsd exactly equals the budget ceiling', () => {
+      const verdict = scoreRun(passingMetrics, par.budgetCeilingUsd, par);
+      expect(verdict.passed).toBe(true);
+    });
+  });
+
   describe('input validation', () => {
-    it.each([
-      ['NaN', NaN],
-      ['negative', -1],
-    ])('rejects metrics.apiP95Ms = %s, naming it in the error', (_label, value) => {
-      expect(() => scoreRun({ ...passingMetrics, apiP95Ms: value }, 18, par)).toThrow(
-        /metrics\.apiP95Ms/,
-      );
+    // Table-driven: one field-path + one score() call per invalid value.
+    // Consolidates what was nine near-identical it.each blocks into a single
+    // table without dropping any field or invalid-value case.
+    interface GuardCase {
+      field: string;
+      invalidValues: ReadonlyArray<readonly [label: string, value: number]>;
+      score: (value: number) => Verdict;
+    }
+
+    const guardCases: GuardCase[] = [
+      {
+        field: 'metrics.apiP95Ms',
+        invalidValues: [
+          ['NaN', NaN],
+          ['negative', -1],
+        ],
+        score: (v) => scoreRun({ ...passingMetrics, apiP95Ms: v }, 18, par),
+      },
+      {
+        field: 'metrics.jobStartP95Ms',
+        invalidValues: [
+          ['NaN', NaN],
+          ['negative', -1],
+        ],
+        score: (v) => scoreRun({ ...passingMetrics, jobStartP95Ms: v }, 18, par),
+      },
+      {
+        field: 'metrics.errorRate',
+        invalidValues: [
+          ['NaN', NaN],
+          ['negative', -1],
+        ],
+        score: (v) => scoreRun({ ...passingMetrics, errorRate: v }, 18, par),
+      },
+      {
+        field: 'monthlyUsd',
+        invalidValues: [
+          ['NaN', NaN],
+          ['negative', -1],
+        ],
+        score: (v) => scoreRun(passingMetrics, v, par),
+      },
+      {
+        field: 'par.slo.apiP95Ms',
+        invalidValues: [
+          ['NaN', NaN],
+          ['negative', -1],
+        ],
+        score: (v) => scoreRun(passingMetrics, 18, { ...par, slo: { ...par.slo, apiP95Ms: v } }),
+      },
+      {
+        field: 'par.slo.jobStartP95Ms',
+        invalidValues: [
+          ['NaN', NaN],
+          ['negative', -1],
+        ],
+        score: (v) =>
+          scoreRun(passingMetrics, 18, { ...par, slo: { ...par.slo, jobStartP95Ms: v } }),
+      },
+      {
+        field: 'par.slo.maxErrorRate',
+        invalidValues: [
+          ['NaN', NaN],
+          ['negative', -1],
+        ],
+        score: (v) =>
+          scoreRun(passingMetrics, 18, { ...par, slo: { ...par.slo, maxErrorRate: v } }),
+      },
+      {
+        field: 'par.budgetCeilingUsd',
+        invalidValues: [
+          ['NaN', NaN],
+          ['negative', -1],
+        ],
+        score: (v) => scoreRun(passingMetrics, 18, { ...par, budgetCeilingUsd: v }),
+      },
+      {
+        field: 'par.parMonthlyUsd',
+        invalidValues: [
+          ['NaN', NaN],
+          ['zero', 0],
+          ['negative', -1],
+        ],
+        score: (v) => scoreRun(passingMetrics, 18, { ...par, parMonthlyUsd: v }),
+      },
+    ];
+
+    const guardRows = guardCases.flatMap(({ field, invalidValues, score }) =>
+      invalidValues.map(([label, value]) => [field, label, value, score] as const),
+    );
+
+    it.each(guardRows)('rejects %s = %s, naming it in the error', (field, _label, value, score) => {
+      const fieldPattern = new RegExp(field.replace(/\./g, '\\.'));
+      expect(() => score(value)).toThrow(fieldPattern);
     });
 
-    it.each([
-      ['NaN', NaN],
-      ['negative', -1],
-    ])('rejects metrics.jobStartP95Ms = %s, naming it in the error', (_label, value) => {
-      expect(() => scoreRun({ ...passingMetrics, jobStartP95Ms: value }, 18, par)).toThrow(
-        /metrics\.jobStartP95Ms/,
-      );
-    });
-
-    it.each([
-      ['NaN', NaN],
-      ['negative', -1],
-    ])('rejects metrics.errorRate = %s, naming it in the error', (_label, value) => {
-      expect(() => scoreRun({ ...passingMetrics, errorRate: value }, 18, par)).toThrow(
-        /metrics\.errorRate/,
-      );
-    });
-
-    it.each([
-      ['NaN', NaN],
-      ['negative', -1],
-    ])('rejects monthlyUsd = %s, naming it in the error', (_label, value) => {
-      expect(() => scoreRun(passingMetrics, value, par)).toThrow(/monthlyUsd/);
-    });
-
-    it.each([
-      ['NaN', NaN],
-      ['negative', -1],
-    ])('rejects par.slo.apiP95Ms = %s, naming it in the error', (_label, value) => {
+    it('rejects par.budgetCeilingUsd below par.parMonthlyUsd, naming both fields', () => {
+      // A profile whose ceiling is below its own par cost would fail the
+      // reference-optimal design on cost, silently, every time.
       expect(() =>
-        scoreRun(passingMetrics, 18, { ...par, slo: { ...par.slo, apiP95Ms: value } }),
-      ).toThrow(/par\.slo\.apiP95Ms/);
-    });
-
-    it.each([
-      ['NaN', NaN],
-      ['negative', -1],
-    ])('rejects par.slo.jobStartP95Ms = %s, naming it in the error', (_label, value) => {
-      expect(() =>
-        scoreRun(passingMetrics, 18, { ...par, slo: { ...par.slo, jobStartP95Ms: value } }),
-      ).toThrow(/par\.slo\.jobStartP95Ms/);
-    });
-
-    it.each([
-      ['NaN', NaN],
-      ['negative', -1],
-    ])('rejects par.slo.maxErrorRate = %s, naming it in the error', (_label, value) => {
-      expect(() =>
-        scoreRun(passingMetrics, 18, { ...par, slo: { ...par.slo, maxErrorRate: value } }),
-      ).toThrow(/par\.slo\.maxErrorRate/);
-    });
-
-    it.each([
-      ['NaN', NaN],
-      ['negative', -1],
-    ])('rejects par.budgetCeilingUsd = %s, naming it in the error', (_label, value) => {
-      expect(() => scoreRun(passingMetrics, 18, { ...par, budgetCeilingUsd: value })).toThrow(
-        /par\.budgetCeilingUsd/,
-      );
-    });
-
-    it.each([
-      ['NaN', NaN],
-      ['zero', 0],
-      ['negative', -1],
-    ])('rejects par.parMonthlyUsd = %s, naming it in the error', (_label, value) => {
-      expect(() => scoreRun(passingMetrics, 18, { ...par, parMonthlyUsd: value })).toThrow(
-        /par\.parMonthlyUsd/,
-      );
+        scoreRun(passingMetrics, 18, { ...par, budgetCeilingUsd: 10, parMonthlyUsd: 20 }),
+      ).toThrow(/par\.budgetCeilingUsd.*par\.parMonthlyUsd|par\.parMonthlyUsd.*par\.budgetCeilingUsd/);
     });
   });
 
@@ -187,6 +239,50 @@ describe('scoreRun', () => {
       const opsFailure = verdict.failures.find((f) => f.axis === 'ops');
       expect(opsFailure?.detail.length).toBeLessThan(longName.length);
       expect(opsFailure?.detail).toContain('[truncated]');
+    });
+  });
+
+  describe('ops events presence and shape validation', () => {
+    it('rejects an empty opsEvents array, naming the field', () => {
+      // Absence of evidence is not evidence of a pass: a run that evaluated
+      // no ops events is not a run that survived them.
+      expect(() => scoreRun({ ...passingMetrics, opsEvents: [] }, 18, par)).toThrow(
+        /metrics\.opsEvents/,
+      );
+    });
+
+    it('rejects a missing opsEvents field, naming the field, instead of a raw TypeError', () => {
+      // Anchored: a native "X is not iterable" TypeError from an unguarded
+      // for-of would itself mention "metrics.opsEvents" in its message, so a
+      // loose substring match can't tell a controlled error from that raw one.
+      const { opsEvents: _omit, ...rest } = passingMetrics;
+      const malformed = rest as unknown as RunMetrics;
+      expect(() => scoreRun(malformed, 18, par)).toThrow(
+        /^scoreRun: metrics\.opsEvents must be an array/,
+      );
+    });
+
+    it('rejects a non-array opsEvents field, naming the field, instead of a raw TypeError', () => {
+      const malformed = { ...passingMetrics, opsEvents: {} } as unknown as RunMetrics;
+      expect(() => scoreRun(malformed, 18, par)).toThrow(
+        /^scoreRun: metrics\.opsEvents must be an array/,
+      );
+    });
+
+    it('rejects an ops event with a non-string name', () => {
+      const malformed = {
+        ...passingMetrics,
+        opsEvents: [{ name: 123, sloHeld: true }],
+      } as unknown as RunMetrics;
+      expect(() => scoreRun(malformed, 18, par)).toThrow(/metrics\.opsEvents\[0\]\.name/);
+    });
+
+    it('rejects an ops event with a non-boolean sloHeld', () => {
+      const malformed = {
+        ...passingMetrics,
+        opsEvents: [{ name: 'instance-eviction', sloHeld: 'yes' }],
+      } as unknown as RunMetrics;
+      expect(() => scoreRun(malformed, 18, par)).toThrow(/metrics\.opsEvents\[0\]\.sloHeld/);
     });
   });
 });
