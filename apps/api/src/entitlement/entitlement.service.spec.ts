@@ -1,6 +1,6 @@
 import { Test } from '@nestjs/testing';
 import { ForbiddenException } from '@nestjs/common';
-import { OwnershipService } from './ownership.service';
+import { EntitlementService } from './entitlement.service';
 import { DRIZZLE } from '../db/db.module';
 
 const mockDb = {
@@ -10,8 +10,8 @@ const mockDb = {
   limit: jest.fn(),
 };
 
-describe('OwnershipService', () => {
-  let service: OwnershipService;
+describe('EntitlementService', () => {
+  let service: EntitlementService;
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -19,24 +19,29 @@ describe('OwnershipService', () => {
     mockDb.from.mockReturnThis();
     mockDb.where.mockReturnThis();
     const moduleRef = await Test.createTestingModule({
-      providers: [OwnershipService, { provide: DRIZZLE, useValue: mockDb }],
+      providers: [EntitlementService, { provide: DRIZZLE, useValue: mockDb }],
     }).compile();
-    service = moduleRef.get(OwnershipService);
+    service = moduleRef.get(EntitlementService);
   });
 
+  // Entitlement filtering happens in SQL via `inArray` in the WHERE clause
+  // (see entitlement.service.ts), so a matching row means the purchase was
+  // already found entitled by the query; a non-matching status simply
+  // produces no row.
+
   it('resolves for a buyer whose purchase reached invite_sent', async () => {
-    mockDb.limit.mockResolvedValueOnce([{ id: 'p1', status: 'invite_sent' }]);
+    mockDb.limit.mockResolvedValueOnce([{ id: 'p1' }]);
     await expect(service.assertOwnsListing('u1', 'l1')).resolves.toBeUndefined();
   });
 
   it('resolves for a buyer whose purchase is paid but the invite failed', async () => {
     // An invite failure is our problem, not theirs. They paid; they get access.
-    mockDb.limit.mockResolvedValueOnce([{ id: 'p1', status: 'invite_failed' }]);
+    mockDb.limit.mockResolvedValueOnce([{ id: 'p1' }]);
     await expect(service.assertOwnsListing('u1', 'l1')).resolves.toBeUndefined();
   });
 
   it('resolves for a purchase that is paid but not yet invited', async () => {
-    mockDb.limit.mockResolvedValueOnce([{ id: 'p1', status: 'paid' }]);
+    mockDb.limit.mockResolvedValueOnce([{ id: 'p1' }]);
     await expect(service.assertOwnsListing('u1', 'l1')).resolves.toBeUndefined();
   });
 
@@ -46,12 +51,13 @@ describe('OwnershipService', () => {
   });
 
   it('rejects a purchase still pending payment', async () => {
-    mockDb.limit.mockResolvedValueOnce([{ id: 'p1', status: 'pending' }]);
+    // Not in ENTITLED_STATUSES, so the inArray-filtered query returns no row.
+    mockDb.limit.mockResolvedValueOnce([]);
     await expect(service.assertOwnsListing('u1', 'l1')).rejects.toThrow(ForbiddenException);
   });
 
   it('rejects a refunded purchase', async () => {
-    mockDb.limit.mockResolvedValueOnce([{ id: 'p1', status: 'refunded' }]);
+    mockDb.limit.mockResolvedValueOnce([]);
     await expect(service.assertOwnsListing('u1', 'l1')).rejects.toThrow(ForbiddenException);
   });
 
@@ -61,7 +67,7 @@ describe('OwnershipService', () => {
     const missing = await service
       .assertOwnsListing('u1', 'l1')
       .catch((e: unknown) => (e as Error).message);
-    mockDb.limit.mockResolvedValueOnce([{ id: 'p1', status: 'refunded' }]);
+    mockDb.limit.mockResolvedValueOnce([]);
     const unentitled = await service
       .assertOwnsListing('u1', 'l1')
       .catch((e: unknown) => (e as Error).message);
