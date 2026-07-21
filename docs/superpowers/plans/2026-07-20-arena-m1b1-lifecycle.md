@@ -41,11 +41,14 @@ M1-B as scoped in the spec covers four independently-testable subsystems. One pl
 packages/db/src/schema.ts            — MODIFY: add two tables + two enums
 packages/db/migrations/              — generated migration
 
+apps/api/src/entitlement/               — SHARED, see deviation note below
+├── entitlement.service.ts           — "does this user own a paid purchase of this listing?"
+├── entitlement.service.spec.ts
+└── entitlement.module.ts
+
 apps/api/src/arena/
-├── arena.module.ts                  — wires the module, imports AuthModule
+├── arena.module.ts                  — wires the module, imports AuthModule + EntitlementModule
 ├── arena.constants.ts               — quotas and TTL as named constants
-├── ownership.service.ts             — "does this user own a paid purchase of this listing?"
-├── ownership.service.spec.ts
 ├── environments.service.ts          — create / list. Quota + slug generation
 ├── environments.service.spec.ts
 ├── turns.service.ts                 — submit a design, validate, store verdict-or-errors
@@ -57,7 +60,18 @@ apps/api/test/arena.e2e-spec.ts      — end-to-end against real Postgres
 apps/api/src/app.module.ts           — MODIFY: register ArenaModule
 ```
 
-**Responsibility boundaries:** `ownership` answers one question and is reused by both services. `environments` owns creation and quota. `turns` owns validation and turn state. Splitting by responsibility rather than stuffing one `arena.service.ts` keeps each file small enough to reason about, matching how `catalog`/`purchases`/`tutor` are already organized.
+> **Deviation applied during execution (2026-07-21, commit `89e5d85`).** Task 2 originally
+> created an arena-local `OwnershipService`. Review found `TutorService.assertOwnership`
+> already implemented the identical rule, giving two independently-maintained definitions of
+> "has this person paid." Both are allow-lists so they fail closed, but a deliberate rule
+> change applied to one and not the other would silently diverge who may spend GCP budget
+> from who may use the tutor. Extracted to a shared `apps/api/src/entitlement/` module —
+> deliberately NOT under `purchases/`, because `PurchasesModule` reads Stripe env vars at
+> boot and importing it would drag those into arena's startup and tests. The status list is
+> now typed against `purchaseStatusEnum`, so a typo is a compile error (verified: `TS2820`).
+> Tasks 3 and 5 below inject `EntitlementService.assertOwnsListing(userId, listingId)`.
+
+**Responsibility boundaries:** `entitlement` answers one question and is reused by both services. `environments` owns creation and quota. `turns` owns validation and turn state. Splitting by responsibility rather than stuffing one `arena.service.ts` keeps each file small enough to reason about, matching how `catalog`/`purchases`/`tutor` are already organized.
 
 ---
 
