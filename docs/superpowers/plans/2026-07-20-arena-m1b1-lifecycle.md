@@ -1011,6 +1011,21 @@ git commit -m "test(arena-api): end-to-end lifecycle coverage against real Postg
 - The migration applies cleanly to a fresh database.
 - No GCP call, Terraform execution, or load generation exists anywhere in this milestone.
 
+## Carried Forward to M1-B2 — Required Review Checklist
+
+**Every `UPDATE` must set `updatedAt` explicitly.** Drizzle's `defaultNow()` fires only on
+`INSERT`; there is no database trigger. This codebase maintains the column by hand at each
+write site — see `apps/api/src/tutor/tutor.service.ts` and
+`packages/db/src/seeds/upsert-listing.ts`, both of which pass `updatedAt: new Date()`.
+
+No bug exists in M1-B1, because it only inserts. But M1-B2 adds the status-machine
+transitions (`pending→provisioning→ready`, `applying→applied|apply_failed→measuring→scored`)
+and the TTL reaper, all of which are `UPDATE`s. If one forgets, `updated_at` silently freezes
+at insert time on exactly the rows that are actively transitioning — destroying the "when did
+this expensive apply last change state" visibility that a cost-bearing status machine exists
+to provide. It is a manual convention here, not an enforced one, so it must be checked in
+review.
+
 ## What M1-B2 Picks Up
 
 The first-party Terraform module that builds a buyer environment from `ArenaTfvars`, and the arena-runner Cloud Run Job that consumes an `applying` turn: plan → apply with a namespace-scoped service account → advance the turn to `applied` or `apply_failed` → post the result to the customer's PR. Also the TTL reaper, which only becomes meaningful once environments consume real resources. Still no M0 dependency.
