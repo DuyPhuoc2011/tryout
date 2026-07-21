@@ -14,11 +14,11 @@ import { MAX_TURNS_PER_HOUR } from '../src/arena/arena.constants';
  * arena-environments-concurrency.e2e-spec.ts.
  *
  * Strategy: prefill the turns table for ONE environment with
- * (MAX_TURNS_PER_HOUR - REMAINING_SLOTS) turns already "applying" within the
+ * (MAX_TURNS_PER_HOUR - REMAINING_SLOTS) turns already "submitted" within the
  * last hour, then fire RACER_COUNT concurrent submit() calls for that SAME
  * environment (same buyer double-clicking / retrying is the real-world
  * shape of this race). At most REMAINING_SLOTS may succeed; the accepted
- * (applying) turn count for the environment must never exceed
+ * (submitted) turn count for the environment must never exceed
  * MAX_TURNS_PER_HOUR.
  */
 describe('TurnsService rate-limit concurrency (integration)', () => {
@@ -94,7 +94,7 @@ describe('TurnsService rate-limit concurrency (integration)', () => {
       // eslint-disable-next-line no-await-in-loop
       await sql`
         INSERT INTO arena_turns (environment_id, status, created_at)
-        VALUES (${environmentId}, 'applying', now())`;
+        VALUES (${environmentId}, 'submitted', now())`;
     }
   });
 
@@ -120,15 +120,15 @@ describe('TurnsService rate-limit concurrency (integration)', () => {
         /rate limit/i.test((r.reason as Error).message),
     ).length;
 
-    const [{ count: applyingCount }] = await sql`
+    const [{ count: submittedCount }] = await sql`
       SELECT count(*)::int AS count
       FROM arena_turns
-      WHERE environment_id = ${environmentId} AND status = 'applying'`;
+      WHERE environment_id = ${environmentId} AND status = 'submitted'`;
 
     // The real assertion: accepted turns for this environment must never
     // exceed the cap. This is the one a TOCTOU race can violate even when
     // each individual request's own count-check looked fine at read time.
-    expect(Number(applyingCount)).toBeLessThanOrEqual(MAX_TURNS_PER_HOUR);
+    expect(Number(submittedCount)).toBeLessThanOrEqual(MAX_TURNS_PER_HOUR);
 
     // Exactly REMAINING_SLOTS of the racers should have won the remaining
     // capacity — not more (that would be the race), not fewer (that would be

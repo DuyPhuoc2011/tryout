@@ -117,16 +117,16 @@ describe('TurnsService', () => {
     expect(mockDb.transaction).not.toHaveBeenCalled();
   });
 
-  it('stores a valid design as applying with rendered tfvars', async () => {
+  it('stores a valid design as submitted with rendered tfvars', async () => {
     arrangeLookupThenRateCount(ENV, 0);
-    mockDb.returning.mockResolvedValueOnce([{ id: 't1', status: 'applying' }]);
+    mockDb.returning.mockResolvedValueOnce([{ id: 't1', status: 'submitted' }]);
 
     const result = await service.submit('u1', 'e1', VALID_DESIGN);
 
-    expect(result).toEqual({ id: 't1', status: 'applying' });
+    expect(result).toEqual({ id: 't1', status: 'submitted' });
     const inserted = mockDb.values.mock.calls[0][0];
     expect(inserted.environmentId).toBe('e1');
-    expect(inserted.status).toBe('applying');
+    expect(inserted.status).toBe('submitted');
     expect(inserted.parseErrors).toBeNull();
     expect(inserted.tfvars.environment_id).toBe(ENV.envSlug);
     expect(inserted.tfvars.api_min_instances).toBe(1);
@@ -158,9 +158,16 @@ describe('TurnsService', () => {
     expect(inserted.tfvars).toBeNull();
   });
 
-  it('does not count a rejected turn against the rate limit even when already at the cap', async () => {
+  it('skips the rate-limit check entirely when the current submission is itself rejected', async () => {
     // No rate-count arrangement at all — if the rejected path touched the
     // rate limit machinery, this would blow up on an unmocked chain.
+    //
+    // This only proves the CURRENT submission's rejected path never reads
+    // the rate-limit count. It does NOT prove that a PRIOR rejected turn is
+    // excluded from a LATER accepted submission's count query — that is a
+    // real-predicate assertion a mocked count() can't structurally make
+    // (see arena-turns-rejected-quota.e2e-spec.ts, which proves it against
+    // live Postgres).
     arrangeLookupOnly(ENV);
     mockDb.returning.mockResolvedValueOnce([{ id: 't4', status: 'rejected' }]);
 

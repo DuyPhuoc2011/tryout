@@ -5,7 +5,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { and, count, eq, gte, sql } from 'drizzle-orm';
+import { and, count, eq, gte, ne, sql } from 'drizzle-orm';
 import { schema, type Db } from '@tryout/db';
 import { parseDesign, renderTfvars } from '@tryout/arena';
 import { DRIZZLE } from '../db/db.module';
@@ -95,6 +95,14 @@ export class TurnsService {
           and(
             eq(schema.arenaTurns.environmentId, environment.id),
             gte(schema.arenaTurns.createdAt, oneHourAgo),
+            // Rejected turns cost nothing and must never eat into the paid
+            // apply budget — that's the whole point of not rate-limiting the
+            // rejected path above. Excluded via ne(status, 'rejected') rather
+            // than an allow-list of "counts toward the cap" statuses: if the
+            // enum ever grows a new status, ne() makes it COUNT by default
+            // (conservative, fails closed on a spend limit) instead of
+            // silently escaping the limit the way an allow-list would.
+            ne(schema.arenaTurns.status, 'rejected'),
           ),
         );
 
@@ -112,11 +120,18 @@ export class TurnsService {
 
       const tfvars = renderTfvars(parsed.design, environment.envSlug);
 
+      // Inserted as 'submitted' — the enum's own default — not 'applying'.
+      // A runner (not yet built) is the one that flips submitted -> applying
+      // when it actually starts `terraform apply`; writing 'applying' here
+      // would erase that distinction and leave a runner with no way to tell
+      // "queued, not started" from "mid-apply right now". 'submitted' still
+      // counts toward MAX_TURNS_PER_HOUR (it isn't 'rejected'), which is
+      // correct: a queued apply is already committed spend.
       const [turn] = await tx
         .insert(schema.arenaTurns)
         .values({
           environmentId: environment.id,
-          status: 'applying',
+          status: 'submitted',
           parseErrors: null,
           tfvars,
         })
