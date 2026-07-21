@@ -13,6 +13,8 @@ const mockDb = {
   insert: jest.fn().mockReturnThis(),
   values: jest.fn().mockReturnThis(),
   returning: jest.fn(),
+  execute: jest.fn(),
+  transaction: jest.fn(),
 };
 
 const entitlement = { assertOwnsListing: jest.fn() };
@@ -24,6 +26,12 @@ function resetChain() {
   mockDb.where.mockReturnThis();
   mockDb.insert.mockReturnThis();
   mockDb.values.mockReturnThis();
+  mockDb.execute.mockResolvedValue(undefined);
+  // create() runs everything inside db.transaction(tx => ...). The tx object
+  // has the exact same chainable shape as mockDb, so the callback is simply
+  // invoked with mockDb itself — the rest of this suite's chain setup
+  // (arrangeReads, .values.mock.calls, etc.) needs no other changes.
+  mockDb.transaction.mockImplementation((cb: (tx: typeof mockDb) => unknown) => cb(mockDb));
   entitlement.assertOwnsListing.mockResolvedValue(undefined);
 }
 
@@ -57,8 +65,10 @@ describe('EnvironmentsService', () => {
     entitlement.assertOwnsListing.mockRejectedValueOnce(new Error('nope'));
     await expect(service.create('u1', 'l1')).rejects.toThrow('nope');
     expect(mockDb.insert).not.toHaveBeenCalled();
-    // An unentitled caller must not learn how much capacity is in use.
+    // An unentitled caller must not learn how much capacity is in use, and
+    // must never take the advisory lock at all.
     expect(mockDb.select).not.toHaveBeenCalled();
+    expect(mockDb.transaction).not.toHaveBeenCalled();
   });
 
   it('creates an environment with a schema-valid slug and a TTL in the future', async () => {
@@ -70,6 +80,8 @@ describe('EnvironmentsService', () => {
 
     expect(result.id).toBe('e1');
     const inserted = mockDb.values.mock.calls[0][0];
+    expect(inserted.userId).toBe('u1');
+    expect(inserted.listingId).toBe('l1');
     // Must satisfy both renderTfvars' pattern and the DB CHECK constraint.
     expect(inserted.envSlug).toMatch(/^env-[a-z0-9]{6,32}$/);
     expect(inserted.status).toBe('pending');
@@ -106,6 +118,29 @@ describe('EnvironmentsService', () => {
     // A silent stall is the exact failure mode this project's own F09 incident
     // was about. The refusal must say what is happening.
     await expect(service.create('u1', 'l1')).rejects.toThrow(/capacity/i);
+  });
+
+  it('refuses (fails closed) when the live count comes back missing or non-numeric', async () => {
+    // A bare COUNT(*) with no GROUP BY always returns exactly one row in
+    // practice, so this is realistically unreachable — but if it ever did
+    // happen, defaulting to 0 would mean "act as if the arena is empty" on a
+    // spend ceiling. It must refuse instead.
+    mockDb.where.mockResolvedValueOnce([]);
+    await expect(service.create('u1', 'l1')).rejects.toThrow(ServiceUnavailableException);
+    expect(mockDb.insert).not.toHaveBeenCalled();
+  });
+
+  it('converts a raw unique-violation on insert into a friendly 409', async () => {
+    // Backstop for the same-user-same-listing race: the advisory lock closes
+    // this in practice, but a raw 23505 (e.g. a client double-click racing
+    // two requests) must still surface as ConflictException, not a generic
+    // 500 from Nest's default exception filter.
+    arrangeReads({ liveCount: 0 });
+    const pgUniqueViolation = Object.assign(new Error('duplicate key value'), {
+      code: '23505',
+    });
+    mockDb.returning.mockRejectedValueOnce(pgUniqueViolation);
+    await expect(service.create('u1', 'l1')).rejects.toThrow(ConflictException);
   });
 
   it('mine() returns only the caller rows and never exposes another buyer', async () => {

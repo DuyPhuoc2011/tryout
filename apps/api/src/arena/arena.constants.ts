@@ -19,3 +19,19 @@ export const LIVE_ENVIRONMENT_STATUSES = [
   'ready',
   'degraded',
 ] as const;
+
+/**
+ * Postgres advisory lock key serializing environment-creation transactions.
+ *
+ * MAX_CONCURRENT_ENVIRONMENTS is enforced by application code (count-check
+ * then insert), not by a database constraint — Postgres has no native way to
+ * cap a table's live row count. Without serialization that check-then-insert
+ * is a TOCTOU race: N concurrent creates can all read the same count, all
+ * pass the check, and all insert, overshooting the cap by up to N-1. A
+ * single Postgres instance behind a single API pool makes a session-scoped
+ * advisory lock (held for the duration of the transaction, released
+ * automatically on commit or rollback) sufficient — no distributed locking
+ * needed. Value is arbitrary; it only needs to be a stable, process-wide key
+ * not reused by any other subsystem's advisory locks.
+ */
+export const ARENA_CREATE_LOCK_KEY = 88_402_617;
