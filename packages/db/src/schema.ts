@@ -6,6 +6,7 @@ import {
   integer,
   timestamp,
   unique,
+  jsonb,
 } from 'drizzle-orm/pg-core';
 
 export const listingStatusEnum = pgEnum('listing_status', ['draft', 'published', 'archived']);
@@ -101,6 +102,70 @@ export const tutorThreads = pgTable(
     userListingUnique: unique('tutor_threads_user_listing_unique').on(t.userId, t.listingId),
   }),
 );
+
+// One-way lifecycle. An environment never returns to an earlier state; `degraded`
+// means a partial apply left it unusable and it must be reprovisioned.
+export const arenaEnvStatusEnum = pgEnum('arena_env_status', [
+  'pending',
+  'provisioning',
+  'ready',
+  'degraded',
+  'destroyed',
+]);
+
+// A turn is one submitted design. `rejected` is a validation failure — it never
+// reaches infrastructure. Everything from `applying` onward costs real money.
+export const arenaTurnStatusEnum = pgEnum('arena_turn_status', [
+  'submitted',
+  'rejected',
+  'applying',
+  'apply_failed',
+  'applied',
+  'measuring',
+  'scored',
+]);
+
+export const arenaEnvironments = pgTable(
+  'arena_environments',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id),
+    listingId: uuid('listing_id')
+      .notNull()
+      .references(() => scenarioListings.id),
+    // Becomes a GCP resource name. Must match /^env-[a-z0-9]{6,32}$/ — the same
+    // pattern @tryout/arena's renderTfvars enforces.
+    envSlug: text('env_slug').notNull().unique(),
+    status: arenaEnvStatusEnum('status').notNull().default('pending'),
+    // Nothing lives forever by accident. The reaper (M1-B2) sweeps past this.
+    ttlExpiresAt: timestamp('ttl_expires_at', { withTimezone: true }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    // One environment per buyer per scenario. Reprovisioning reuses the row.
+    userListingUnique: unique('arena_env_user_listing_unique').on(t.userId, t.listingId),
+  }),
+);
+
+export const arenaTurns = pgTable('arena_turns', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  environmentId: uuid('environment_id')
+    .notNull()
+    .references(() => arenaEnvironments.id),
+  status: arenaTurnStatusEnum('status').notNull().default('submitted'),
+  // Validation failures, shaped as @tryout/arena's ParseError[]. Already
+  // sanitized and length-bounded by parseDesign before they get here.
+  parseErrors: jsonb('parse_errors'),
+  // Rendered ArenaTfvars. Null until a design validates.
+  tfvars: jsonb('tfvars'),
+  // Verdict from scoreRun. Null until a later milestone scores the run.
+  verdict: jsonb('verdict'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
 
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
