@@ -1,3 +1,4 @@
+import { sql } from 'drizzle-orm';
 import {
   pgTable,
   pgEnum,
@@ -7,6 +8,7 @@ import {
   timestamp,
   unique,
   jsonb,
+  index,
 } from 'drizzle-orm/pg-core';
 
 export const listingStatusEnum = pgEnum('listing_status', ['draft', 'published', 'archived']);
@@ -136,7 +138,15 @@ export const arenaEnvironments = pgTable(
       .notNull()
       .references(() => scenarioListings.id),
     // Becomes a GCP resource name. Must match /^env-[a-z0-9]{6,32}$/ — the same
-    // pattern @tryout/arena's renderTfvars enforces.
+    // pattern @tryout/arena's renderTfvars enforces. Also enforced in the
+    // database via a CHECK constraint (`arena_env_slug_shape`), but that
+    // constraint is defense-in-depth against a future backfill/refactor
+    // inserting a malformed slug — not expressed here in Drizzle because the
+    // installed drizzle-kit (0.24.2) does not generate migration SQL for
+    // `check()` table constraints on Postgres (verified empirically: it
+    // silently drops the constraint from both the generated SQL and the
+    // migration snapshot). It exists only as raw SQL appended to
+    // migrations/0008_far_human_fly.sql.
     envSlug: text('env_slug').notNull().unique(),
     status: arenaEnvStatusEnum('status').notNull().default('pending'),
     // Nothing lives forever by accident. The reaper (M1-B2) sweeps past this.
@@ -147,25 +157,49 @@ export const arenaEnvironments = pgTable(
   (t) => ({
     // One environment per buyer per scenario. Reprovisioning reuses the row.
     userListingUnique: unique('arena_env_user_listing_unique').on(t.userId, t.listingId),
+    // Both queries below only ever care about non-destroyed rows, and most rows
+    // eventually end up `destroyed` — a partial index keeps these small and
+    // gives an index-only scan for the per-status count instead of carrying
+    // dead weight for terminal rows.
+    // Quota check on every environment create: count live (non-destroyed) rows.
+    liveStatusIdx: index('arena_env_live_status_idx')
+      .on(t.status)
+      .where(sql`${t.status} <> 'destroyed'`),
+    // Reaper (M1-B2): find live rows whose TTL has expired.
+    liveTtlIdx: index('arena_env_live_ttl_idx')
+      .on(t.ttlExpiresAt)
+      .where(sql`${t.status} <> 'destroyed'`),
   }),
 );
 
-export const arenaTurns = pgTable('arena_turns', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  environmentId: uuid('environment_id')
-    .notNull()
-    .references(() => arenaEnvironments.id),
-  status: arenaTurnStatusEnum('status').notNull().default('submitted'),
-  // Validation failures, shaped as @tryout/arena's ParseError[]. Already
-  // sanitized and length-bounded by parseDesign before they get here.
-  parseErrors: jsonb('parse_errors'),
-  // Rendered ArenaTfvars. Null until a design validates.
-  tfvars: jsonb('tfvars'),
-  // Verdict from scoreRun. Null until a later milestone scores the run.
-  verdict: jsonb('verdict'),
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
-});
+export const arenaTurns = pgTable(
+  'arena_turns',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    environmentId: uuid('environment_id')
+      .notNull()
+      .references(() => arenaEnvironments.id),
+    status: arenaTurnStatusEnum('status').notNull().default('submitted'),
+    // Validation failures, shaped as @tryout/arena's ParseError[]. Already
+    // sanitized and length-bounded by parseDesign before they get here.
+    parseErrors: jsonb('parse_errors'),
+    // Rendered ArenaTfvars. Null until a design validates.
+    tfvars: jsonb('tfvars'),
+    // Verdict from scoreRun. Null until a later milestone scores the run.
+    verdict: jsonb('verdict'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    // Serves the rate-limit query on every turn submission (count turns for an
+    // environment created in the last hour) and doubles as the FK index that
+    // Postgres does not create automatically. Equality column first.
+    envCreatedAtIdx: index('arena_turns_environment_id_created_at_idx').on(
+      t.environmentId,
+      t.createdAt,
+    ),
+  }),
+);
 
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
