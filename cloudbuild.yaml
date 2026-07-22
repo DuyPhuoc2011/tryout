@@ -1,0 +1,23 @@
+# Builds both service images from the monorepo root and pushes to Artifact
+# Registry. Usage:
+#   gcloud builds submit --config cloudbuild.yaml \
+#     --substitutions=_REG=<region>-docker.pkg.dev/<proj>/tryout,_API_URL=<api url>
+steps:
+  - name: gcr.io/cloud-builders/docker
+    id: build-api
+    args: ['build', '-f', 'apps/api/Dockerfile', '-t', '${_REG}/api:latest', '.']
+  - name: gcr.io/cloud-builders/docker
+    id: build-web
+    args:
+      - build
+      - -f
+      - apps/web/Dockerfile
+      - --build-arg
+      - NEXT_PUBLIC_API_URL=${_API_URL}
+      - -t
+      - ${_REG}/web:latest
+      - .
+images:
+  - '${_REG}/api:latest'
+  - '${_REG}/web:latest'
+timeout: 1800s

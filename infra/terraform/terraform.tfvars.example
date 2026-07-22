@@ -1,0 +1,14 @@
+# Copy to terraform.tfvars (gitignored) and fill in. Or export TF_VAR_* env vars.
+project_id        = "tryout-sre-lab-260703"
+region            = "us-central1"
+github_owner      = "your-github-org"
+
+# Secrets — prefer `export TF_VAR_github_token=...` over committing here.
+github_token   = "ghp_xxx"
+openai_api_key = "sk-proj-xxx"
+
+# Marketplace (Stripe test-mode keys until launch).
+stripe_secret_key     = "sk_test_xxx"
+stripe_webhook_secret = "whsec_xxx"
+# Public web URL for Stripe success/cancel redirects (Cloud Run URL of tryout-web).
+web_base_url = "https://tryout-web-xxxxxxxxxx-uc.a.run.app"

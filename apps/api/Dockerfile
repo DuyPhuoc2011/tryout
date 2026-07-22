@@ -8,6 +8,7 @@ COPY apps/api ./apps/api
 RUN pnpm install --frozen-lockfile
 RUN pnpm --filter @tryout/shared build \
   && pnpm --filter @tryout/db build \
+  && pnpm --filter @tryout/llm build \
   && pnpm --filter @tryout/api build
 RUN pnpm --filter @tryout/api --prod deploy /out
 
