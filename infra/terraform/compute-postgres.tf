@@ -45,9 +45,10 @@ resource "google_compute_instance" "postgres" {
     # instance). Fine for a private sandbox. Upgrade path: give the VM a service
     # account + secretAccessor and pull it from Secret Manager in the script.
     startup-script = templatefile("${path.module}/scripts/postgres-startup.sh.tpl", {
-      db_password   = random_password.db.result
-      subnet_cidr   = google_compute_subnetwork.subnet.ip_cidr_range
-      vpc_conn_cidr = "10.8.0.0/28"
+      db_password          = random_password.db.result
+      arena_admin_password = random_password.arena_db_admin.result
+      subnet_cidr          = google_compute_subnetwork.subnet.ip_cidr_range
+      vpc_conn_cidr        = "10.8.0.0/28"
     })
   }
 

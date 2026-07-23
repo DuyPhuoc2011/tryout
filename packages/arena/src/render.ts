@@ -1,31 +1,76 @@
+import { z } from 'zod';
+import type { ParseError } from './parse';
 import type { DesignConfig } from './schema';
 import { sanitizeText } from './text-safety';
+
+/** Environment ids become GCP resource names, so they must be strict slugs. */
+const ENVIRONMENT_ID_PATTERN = /^env-[a-z0-9]{6,32}$/;
 
 /**
  * Variables for the first-party Terraform module that builds a buyer
  * environment. Every field is a primitive: the module is fixed code that was
  * written and reviewed here, and buyer input only ever selects values within it.
  *
- * Nothing in this type can express a container image, a provisioner, a command,
- * or a provider — that is the point.
+ * Nothing in this schema can express a container image, a provisioner, a
+ * command, or a provider — that is the point.
+ *
+ * A runtime schema rather than a bare interface because these variables make a
+ * round trip through a jsonb column before the runner feeds them to Terraform,
+ * and a TypeScript interface is erased by then. Bounds mirror `designSchema`,
+ * since every value here is derived from one there.
  */
-export interface ArenaTfvars {
-  environment_id: string;
-  api_min_instances: number;
-  api_max_instances: number;
-  api_concurrency: number;
-  api_cpu: number;
-  api_memory: string;
-  worker_service_enabled: boolean;
-  worker_min_instances: number;
-  worker_max_instances: number;
-  cache_enabled: boolean;
-  cache_tier: string;
-  db_tier: string;
-}
+export const arenaTfvarsSchema = z
+  .object({
+    environment_id: z.string().regex(ENVIRONMENT_ID_PATTERN),
+    api_min_instances: z.number().int().min(0).max(5),
+    api_max_instances: z.number().int().min(1).max(20),
+    api_concurrency: z.number().int().min(1).max(250),
+    api_cpu: z.union([z.literal(0.5), z.literal(1), z.literal(2)]),
+    api_memory: z.enum(['512Mi', '1Gi', '2Gi']),
+    worker_service_enabled: z.boolean(),
+    worker_min_instances: z.number().int().min(0).max(3),
+    worker_max_instances: z.number().int().min(1).max(20),
+    cache_enabled: z.boolean(),
+    cache_tier: z.enum(['basic-1gb', 'standard-1gb']),
+    db_tier: z.enum(['micro', 'small', 'medium']),
+  })
+  .strict();
 
-/** Environment ids become GCP resource names, so they must be strict slugs. */
-const ENVIRONMENT_ID_PATTERN = /^env-[a-z0-9]{6,32}$/;
+export type ArenaTfvars = z.infer<typeof arenaTfvarsSchema>;
+
+export type TfvarsResult =
+  | { ok: true; tfvars: ArenaTfvars }
+  | { ok: false; errors: ParseError[] };
+
+/**
+ * Validate a stored `ArenaTfvars` before it reaches Terraform.
+ *
+ * `renderTfvars` already guarantees the shape at write time, so in a correct
+ * system this always succeeds. It exists for the read side: the runner loads
+ * these variables from `arena_turns.tfvars`, and a jsonb column is not a type.
+ * A future migration, a manual UPDATE, or a restored backup could put anything
+ * there, and the value is about to become arguments to a command that creates
+ * billable infrastructure. Strict object, so an unknown key is a hard failure
+ * rather than a silently ignored one.
+ *
+ * Never throws; errors are sanitized because they are stored and later shown
+ * to a buyer.
+ */
+export function parseTfvars(value: unknown): TfvarsResult {
+  const result = arenaTfvarsSchema.safeParse(value);
+
+  if (!result.success) {
+    return {
+      ok: false,
+      errors: result.error.issues.map((issue) => ({
+        path: sanitizeText(issue.path.length > 0 ? issue.path.join('.') : 'document'),
+        message: sanitizeText(issue.message),
+      })),
+    };
+  }
+
+  return { ok: true, tfvars: result.data };
+}
 
 /**
  * Convert a validated design into Terraform variables.

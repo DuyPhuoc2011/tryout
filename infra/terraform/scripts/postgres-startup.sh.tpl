@@ -35,6 +35,15 @@ sudo -u postgres psql -tc "SELECT 1 FROM pg_roles WHERE rolname='tryout'" | grep
 sudo -u postgres psql -tc "SELECT 1 FROM pg_database WHERE datname='tryout'" | grep -q 1 || \
   sudo -u postgres psql -c "CREATE DATABASE tryout OWNER tryout;"
 
+# Arena admin role: the arena runner's postgresql provider creates one database
+# and one login role per buyer environment, so it needs CREATEDB + CREATEROLE —
+# and nothing else. Not a superuser: it must not be able to read the tryout
+# application database, which is why this is a separate role from 'tryout'.
+ARENA_ADMIN_PASSWORD='${arena_admin_password}'
+sudo -u postgres psql -tc "SELECT 1 FROM pg_roles WHERE rolname='arena_admin'" | grep -q 1 || \
+  sudo -u postgres psql -c "CREATE ROLE arena_admin LOGIN CREATEDB CREATEROLE PASSWORD '$ARENA_ADMIN_PASSWORD';"
+sudo -u postgres psql -c "REVOKE ALL ON DATABASE tryout FROM arena_admin;"
+
 # Listen on the VPC, allow only the subnet + connector ranges.
 echo "listen_addresses = '*'" >> "$PGCONF/postgresql.conf"
 {

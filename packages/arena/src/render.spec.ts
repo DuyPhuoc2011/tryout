@@ -1,4 +1,4 @@
-import { renderTfvars } from './render';
+import { parseTfvars, renderTfvars } from './render';
 import type { DesignConfig } from './schema';
 
 const design: DesignConfig = {
@@ -88,5 +88,49 @@ describe('renderTfvars', () => {
     expect(thrown!.message).not.toMatch(/\t/);
     expect(thrown!.message).not.toMatch(/\r/);
     expect(thrown!.message.length).toBeLessThanOrEqual(400);
+  });
+});
+
+describe('parseTfvars', () => {
+  const rendered = renderTfvars(design, 'env-abc123');
+
+  it('accepts what renderTfvars produced, round-tripped through JSON', () => {
+    // The runner reads these back out of a jsonb column, so the round trip is
+    // the case that actually happens.
+    const result = parseTfvars(JSON.parse(JSON.stringify(rendered)));
+    expect(result).toEqual({ ok: true, tfvars: rendered });
+  });
+
+  it('rejects an unknown key rather than ignoring it', () => {
+    const result = parseTfvars({ ...rendered, container_image: 'evil:latest' });
+    expect(result.ok).toBe(false);
+  });
+
+  it('rejects a value outside the design schema bounds', () => {
+    expect(parseTfvars({ ...rendered, api_max_instances: 5000 }).ok).toBe(false);
+    expect(parseTfvars({ ...rendered, api_cpu: 64 }).ok).toBe(false);
+    expect(parseTfvars({ ...rendered, api_memory: '64Gi' }).ok).toBe(false);
+  });
+
+  it('rejects an environment id that is not a safe slug', () => {
+    expect(parseTfvars({ ...rendered, environment_id: 'env-a; rm -rf /' }).ok).toBe(false);
+  });
+
+  it('rejects a missing field and non-object input', () => {
+    const { db_tier: _dropped, ...missing } = rendered;
+    expect(parseTfvars(missing).ok).toBe(false);
+    expect(parseTfvars(null).ok).toBe(false);
+    expect(parseTfvars('env-abc123').ok).toBe(false);
+  });
+
+  it('sanitizes control characters out of reported errors', () => {
+    const result = parseTfvars({ ...rendered, ['bad\nkey']: 1 });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      for (const error of result.errors) {
+        expect(error.path).not.toMatch(/[\n\r\t]/);
+        expect(error.message).not.toMatch(/[\n\r\t]/);
+      }
+    }
   });
 });

@@ -86,6 +86,12 @@ variable "stripe_webhook_secret" {
   description = "Stripe webhook endpoint signing secret. Set via TF_VAR_stripe_webhook_secret or terraform.tfvars."
 }
 
+variable "arena_scenario_image" {
+  type        = string
+  description = "Container image of the scenario app that buyer arena environments run. Chosen per scenario by us; never buyer input."
+  default     = "us-docker.pkg.dev/cloudrun/container/hello"
+}
+
 variable "web_base_url" {
   type        = string
   description = "Public URL of the web service, used for Stripe success/cancel redirects. Not derived from the web Cloud Run resource to avoid an api<->web dependency cycle."

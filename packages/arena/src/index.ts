@@ -11,7 +11,19 @@
  */
 export { designSchema, SCHEMA_VERSION, type DesignConfig } from './schema';
 export { parseDesign, type ParseError, type ParseResult } from './parse';
-export { renderTfvars, type ArenaTfvars } from './render';
+export {
+  renderTfvars,
+  parseTfvars,
+  arenaTfvarsSchema,
+  type ArenaTfvars,
+  type TfvarsResult,
+} from './render';
+/**
+ * Exported for callers that must store or display text originating outside
+ * this package — e.g. Terraform stderr, which the arena runner writes to a row
+ * that is later rendered to a buyer.
+ */
+export { sanitizeText } from './text-safety';
 export { costFromUsage, type Usage, type CostBreakdown } from './pricing';
 export { GCP_RATES, type RateTable } from './rates';
 export {
