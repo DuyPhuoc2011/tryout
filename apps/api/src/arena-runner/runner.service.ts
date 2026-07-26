@@ -8,9 +8,6 @@ import { TERRAFORM_EXECUTOR, type TerraformExecutor } from './terraform-executor
 /** How many expired environments one reap tick may destroy. */
 const REAP_BATCH_SIZE = 5;
 
-/** Failure text is stored and later shown to a buyer, so it is bounded. */
-const MAX_FAILURE_LENGTH = 2000;
-
 interface ClaimedTurn {
   turnId: string;
   environmentId: string;
@@ -220,12 +217,12 @@ export class RunnerService {
 
   /**
    * Terraform stderr is attacker-adjacent: it can echo values derived from a
-   * buyer's design, and B4 renders this string onto a page. Sanitized and
-   * truncated on the way in, where there is exactly one write site, rather
-   * than at every future read site.
+   * buyer's design, and B4 renders this string onto a page. `sanitizeText`
+   * both escapes control characters and truncates, so it is applied here at
+   * the single write site rather than at every future read site.
    */
   private async recordFailure(claimed: ClaimedTurn, message: string): Promise<void> {
-    const safe = sanitizeText(message).slice(0, MAX_FAILURE_LENGTH);
+    const safe = sanitizeText(message);
 
     await this.db.transaction(async (tx) => {
       await tx

@@ -28,7 +28,7 @@ COPY --from=hashicorp/terraform:1.9.8 /bin/terraform /usr/local/bin/terraform
 
 COPY --from=build /out ./
 # The config the runner applies, at the path env.arenaTerraformDir defaults to.
-COPY infra/terraform/arena-env ./terraform/arena-env
+COPY infra/terraform/modules/arena-env ./terraform/arena-env
 
 # Mode comes from the job args (--mode=apply is the Terraform default in
 # arena.tf; the reap scheduler overrides it).

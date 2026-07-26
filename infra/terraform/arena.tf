@@ -2,7 +2,7 @@
 # Arena runner infrastructure (M1-B2).
 #
 # Everything a buyer environment is BUILT BY lives here. What a buyer
-# environment IS lives in infra/terraform/arena-env/, applied per environment
+# environment IS lives in infra/terraform/modules/arena-env/, applied per environment
 # by the runner with its own state prefix.
 # ---------------------------------------------------------------------------
 

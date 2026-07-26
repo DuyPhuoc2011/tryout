@@ -42,7 +42,7 @@ export const env = {
   arenaDbHost: () => required('ARENA_DB_HOST'),
   arenaDbAdminUser: process.env.ARENA_DB_ADMIN_USER ?? 'arena_admin',
   arenaDbAdminPassword: () => required('ARENA_DB_ADMIN_PASSWORD'),
-  // Directory holding infra/terraform/arena-env, baked into the runner image.
+  // Directory holding infra/terraform/modules/arena-env, baked into the runner image.
   arenaTerraformDir: process.env.ARENA_TERRAFORM_DIR ?? '/app/terraform/arena-env',
   // Wall-clock ceiling for one terraform invocation.
   arenaTerraformTimeoutMs: Number(process.env.ARENA_TERRAFORM_TIMEOUT_MS ?? 10 * 60 * 1000),
