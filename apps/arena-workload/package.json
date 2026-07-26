@@ -1,0 +1,21 @@
+{
+  "name": "@tryout/arena-workload",
+  "version": "0.0.0",
+  "private": true,
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/main.js",
+    "dev": "tsx src/main.ts",
+    "check": "tsx src/queue.check.ts",
+    "test": "echo \"self-check is 'pnpm check' — it needs a live Postgres\" && exit 0"
+  },
+  "dependencies": {
+    "postgres": "^3.4.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "tsx": "^4.15.0",
+    "typescript": "^5.5.0"
+  }
+}

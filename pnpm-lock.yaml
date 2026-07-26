@@ -109,6 +109,22 @@ importers:
         specifier: ^5.5.4
         version: 5.9.3
 
+  apps/arena-workload:
+    dependencies:
+      postgres:
+        specifier: ^3.4.4
+        version: 3.4.9
+    devDependencies:
+      '@types/node':
+        specifier: ^20.14.0
+        version: 20.19.43
+      tsx:
+        specifier: ^4.15.0
+        version: 4.22.4
+      typescript:
+        specifier: ^5.5.0
+        version: 5.9.3
+
   apps/web:
     dependencies:
       '@tryout/shared':
