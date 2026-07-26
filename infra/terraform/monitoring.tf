@@ -87,8 +87,8 @@ resource "google_monitoring_alert_policy" "api_5xx" {
       threshold_value = 1
       duration        = "300s"
       aggregations {
-        alignment_period   = "60s"
-        per_series_aligner = "ALIGN_RATE"
+        alignment_period     = "60s"
+        per_series_aligner   = "ALIGN_RATE"
         cross_series_reducer = "REDUCE_SUM"
       }
       trigger { count = 1 }

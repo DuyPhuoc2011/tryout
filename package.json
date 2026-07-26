@@ -7,6 +7,8 @@
     "node": ">=20"
   },
   "scripts": {
+    "start": "bash scripts/start.sh",
+    "stop": "bash scripts/stop.sh",
     "dev:api": "pnpm --filter @tryout/api start:dev",
     "dev:web": "pnpm --filter @tryout/web dev",
     "build": "pnpm -r build",

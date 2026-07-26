@@ -6,13 +6,12 @@ import {
   Injectable,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import { and, asc, eq, gt, inArray } from 'drizzle-orm';
+import { and, asc, eq, gt } from 'drizzle-orm';
 import { schema, type Db } from '@tryout/db';
 import { DRIZZLE } from '../db/db.module';
 import { env } from '../config/env';
 import { TutorAgentClient } from './tutor-agent.client';
-
-const OWNED_STATUSES = ['invite_sent', 'paid', 'invite_failed'] as const;
+import { EntitlementService } from '../entitlement/entitlement.service';
 
 export interface TutorMessageView {
   id: string;
@@ -26,21 +25,11 @@ export class TutorService {
   constructor(
     @Inject(DRIZZLE) private readonly db: Db,
     private readonly agent: TutorAgentClient,
+    private readonly entitlement: EntitlementService,
   ) {}
 
   private async assertOwnership(userId: string, listingId: string): Promise<void> {
-    const [owned] = await this.db
-      .select({ id: schema.purchases.id })
-      .from(schema.purchases)
-      .where(
-        and(
-          eq(schema.purchases.userId, userId),
-          eq(schema.purchases.listingId, listingId),
-          inArray(schema.purchases.status, [...OWNED_STATUSES]),
-        ),
-      )
-      .limit(1);
-    if (!owned) throw new ForbiddenException('You do not own this scenario');
+    return this.entitlement.assertOwnsListing(userId, listingId);
   }
 
   async getThread(

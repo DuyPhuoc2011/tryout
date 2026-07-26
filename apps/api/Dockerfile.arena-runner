@@ -1,0 +1,35 @@
+# Arena runner: the same API build, started at a different entrypoint, plus the
+# Terraform CLI and the environment config it applies.
+#
+# A separate image from the API on purpose. The API must not ship a Terraform
+# binary or the config that creates billable infrastructure — the runner is the
+# only component that holds credentials able to do that, and image contents are
+# part of that boundary.
+FROM node:20-slim AS build
+RUN corepack enable
+WORKDIR /repo
+COPY pnpm-workspace.yaml package.json pnpm-lock.yaml tsconfig.base.json ./
+COPY packages ./packages
+COPY apps/api ./apps/api
+RUN pnpm install --frozen-lockfile
+RUN pnpm --filter @tryout/shared build \
+  && pnpm --filter @tryout/db build \
+  && pnpm --filter @tryout/llm build \
+  && pnpm --filter @tryout/arena build \
+  && pnpm --filter @tryout/api build
+RUN pnpm --filter @tryout/api --prod deploy /out
+
+FROM node:20-slim AS run
+WORKDIR /app
+
+# Pinned: an unpinned Terraform in an image that applies infrastructure means a
+# state file can be upgraded by a rebuild nobody reviewed.
+COPY --from=hashicorp/terraform:1.9.8 /bin/terraform /usr/local/bin/terraform
+
+COPY --from=build /out ./
+# The config the runner applies, at the path env.arenaTerraformDir defaults to.
+COPY infra/terraform/modules/arena-env ./terraform/arena-env
+
+# Mode comes from the job args (--mode=apply is the Terraform default in
+# arena.tf; the reap scheduler overrides it).
+ENTRYPOINT ["node", "dist/arena-runner/main.js"]

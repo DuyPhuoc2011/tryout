@@ -50,6 +50,20 @@
       "when": 1784258030980,
       "tag": "0006_curved_domino",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1784605163208,
+      "tag": "0007_awesome_eternity",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1784605579174,
+      "tag": "0008_far_human_fly",
+      "breakpoints": true
     }
   ]
 }

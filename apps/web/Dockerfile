@@ -6,6 +6,10 @@ COPY pnpm-workspace.yaml package.json pnpm-lock.yaml tsconfig.base.json ./
 COPY packages ./packages
 COPY apps/web ./apps/web
 RUN pnpm install --frozen-lockfile
+# NEXT_PUBLIC_* is inlined into the client bundle at build time, so it must be
+# present here (not just at runtime). CI passes it as --build-arg.
+ARG NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 RUN pnpm --filter @tryout/shared build && pnpm --filter @tryout/web build
 
 FROM node:20-slim AS run
