@@ -143,7 +143,13 @@ project with `gcloud.cmd monitoring metrics-descriptors list --filter="metric.ty
 | Requests | `run.googleapis.com/request_count` |
 
 For C and D, collect **both services separately** — the whole argument is that
-the second floor is billed independently.
+the second floor is billed independently — and map them to different `Usage`
+fields, because they are on different billing models:
+
+| Service | `cpu_idle` | Billing | `Usage` fields |
+|---|---|---|---|
+| `<env>-api` | `true` | Request-based | `cloudRunActive*`, `cloudRunIdle*`, `requests` |
+| `<env>-worker` | `false` | Instance-based | `cloudRunAlwaysAllocated*`, **no requests** |
 
 GKE (E, F): billing is node-based, so the quantity that matters is
 **node-hours** = node count × wall-clock hours, plus the machine type. Record
@@ -234,15 +240,20 @@ or changing the scenario's thesis.
 
 ## Caveats Carried Into This Experiment
 
-1. **`rates.ts` has one unverified field.** `cloudRunIdleGibSecond` has no
-   locatable published figure. It is a direct multiplier on every
-   `min_instances` configuration — B, C, D — so the P1 comparison is sensitive
-   to it. Verify before trusting a close result.
-2. **No always-allocated rate exists.** The worker service runs `cpu_idle = false`,
-   which bills instance-based for the instance lifetime — neither the `active`
-   nor the `idle` figure in `rates.ts`. **Cost for configurations C and D is
-   understated until that rate is added.** If the crossover appears to hinge on
-   C or D, close this first.
+1. ~~**`rates.ts` has one unverified field.**~~ **Resolved 2026-07-26.** Every
+   Cloud Run rate is now verified against the Cloud Billing Catalog API. This
+   turned up a real error: `cloudRunIdleGibSecond` was `0.0000003125` against an
+   actual `0.0000025` — eight times under, on a field that multiplies every
+   `min_instances` configuration. Any cost reasoning done before this date
+   understated B, C, and D.
+2. ~~**No always-allocated rate exists.**~~ **Resolved 2026-07-26.** `rates.ts`
+   carries the instance-based pair (CPU `0.000018`/s, memory `0.000002`/GiB·s)
+   and `costFromUsage` has a `cloudRunAlwaysAllocated` line item. The harness
+   must report `cloudRunAlwaysAllocatedVcpuSeconds` and
+   `…GibSeconds` for the worker service in configurations C and D — the fields
+   are required, so omitting them throws rather than silently pricing the
+   worker at zero. Note that instance-based billing carries **no per-request
+   charge**: count requests against the API service only.
 3. **`redisGibHour` and `dbHour` are modelled, not quoted.** They price a Cloud
    Run sidecar and a shared VM, not the Memorystore and Compute SKUs they are
    named after. Both are held constant across all six configurations here, so

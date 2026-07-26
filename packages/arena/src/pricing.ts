@@ -10,6 +10,14 @@ export interface Usage {
   cloudRunActiveGibSeconds: number;
   cloudRunIdleVcpuSeconds: number;
   cloudRunIdleGibSeconds: number;
+  /**
+   * Whole-lifetime seconds for services on instance-based billing — the
+   * split-out worker tier. Required, not optional: a harness that forgot to
+   * report the worker would otherwise get a free worker tier, which is exactly
+   * the understatement this line item exists to prevent.
+   */
+  cloudRunAlwaysAllocatedVcpuSeconds: number;
+  cloudRunAlwaysAllocatedGibSeconds: number;
   requests: number;
   cacheEnabled: boolean;
   cacheTier: 'basic-1gb' | 'standard-1gb';
@@ -20,6 +28,7 @@ export interface CostBreakdown {
   lineItems: {
     cloudRunActive: number;
     cloudRunIdle: number;
+    cloudRunAlwaysAllocated: number;
     requests: number;
     cache: number;
     db: number;
@@ -37,6 +46,8 @@ const NUMERIC_USAGE_FIELDS = [
   'cloudRunActiveGibSeconds',
   'cloudRunIdleVcpuSeconds',
   'cloudRunIdleGibSeconds',
+  'cloudRunAlwaysAllocatedVcpuSeconds',
+  'cloudRunAlwaysAllocatedGibSeconds',
   'requests',
 ] as const;
 
@@ -101,6 +112,12 @@ export function costFromUsage(usage: Usage, rates: RateTable = GCP_RATES): CostB
     cloudRunIdle:
       usage.cloudRunIdleVcpuSeconds * rates.cloudRunIdleVcpuSecond +
       usage.cloudRunIdleGibSeconds * rates.cloudRunIdleGibSecond,
+    cloudRunAlwaysAllocated:
+      usage.cloudRunAlwaysAllocatedVcpuSeconds * rates.cloudRunAlwaysAllocatedVcpuSecond +
+      usage.cloudRunAlwaysAllocatedGibSeconds * rates.cloudRunAlwaysAllocatedGibSecond,
+    // Instance-based billing carries no per-request charge, so a service on it
+    // must not contribute to `requests`. The harness reports request counts for
+    // request-billed services only.
     requests: usage.requests * rates.cloudRunRequest,
     cache: usage.cacheEnabled ? rates.redisGibHour[usage.cacheTier] * usage.windowHours : 0,
     db: rates.dbHour[usage.dbTier] * usage.windowHours,

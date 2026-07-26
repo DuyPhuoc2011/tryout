@@ -7,19 +7,28 @@
  * Source: https://cloud.google.com/run/pricing,
  *         https://cloud.google.com/memorystore/docs/redis/pricing,
  *         https://cloud.google.com/compute/all-pricing
- * Verified: 2026-07-26, partially — see the per-field status below.
+ * Verified: 2026-07-26 against the Cloud Billing Catalog API, which is the
+ * billing system's own SKU list rather than a rendered pricing page:
  *
- * VERIFIED against published Cloud Run Tier 1 pricing:
- *   cloudRunActiveVcpuSecond  0.000024    $0.000024 / vCPU-second
- *   cloudRunActiveGibSecond   0.0000025   $0.00000250 / GiB-second
- *   cloudRunIdleVcpuSecond    0.0000025   $0.0000025 / vCPU-second (min-instance idle)
- *   cloudRunRequest           0.0000004   $0.40 per million requests
+ *   curl -H "Authorization: Bearer $(gcloud.cmd auth print-access-token)" \
+ *     "https://cloudbilling.googleapis.com/v1/services/152E-C115-5142/skus?pageSize=500"
  *
- * UNVERIFIED — no published figure located, do not treat as authoritative:
- *   cloudRunIdleGibSecond     0.0000003125
- * Sources consistently quote the idle *CPU* rate and are silent or
- * self-contradictory on idle memory. This number is not derivable from the
- * others and nothing in the search confirmed it.
+ * Re-run that to re-verify. Secondary pricing blogs were tried first and are
+ * not trustworthy here: several assert that instance-based rates are "lower"
+ * and then quote the request-based figures.
+ *
+ * VERIFIED — SKU description → field:
+ *   Services CPU (Request-based billing)             → cloudRunActiveVcpuSecond
+ *   Services Memory (Request-based billing)          → cloudRunActiveGibSecond
+ *   Services Min Instance CPU (Request-based)        → cloudRunIdleVcpuSecond
+ *   Services Min Instance Memory (Request-based)     → cloudRunIdleGibSecond
+ *   Services CPU (Instance-based billing)            → cloudRunAlwaysAllocatedVcpuSecond
+ *   Services Memory (Instance-based billing)         → cloudRunAlwaysAllocatedGibSecond
+ *   Requests                                         → cloudRunRequest
+ *
+ * CORRECTED 2026-07-26: cloudRunIdleGibSecond was 0.0000003125, eight times
+ * under the actual 0.0000025. It multiplies every min-instance configuration,
+ * so it understated exactly the designs the crossover compares.
  *
  * MODELLED, not published — these price things that are deliberately not the
  * SKU they are named after, so "verifying against GCP" does not apply:
@@ -37,13 +46,12 @@
  *                 $0.0335/hr — every value here is above that, and
  *                 intentionally so.
  *
- * MISSING — required before M1-B3 scores a `separate_service` design:
- * an always-allocated (instance-based billing) vCPU-second and GiB-second
- * rate. The split-out worker service runs with `cpu_idle = false` because a
- * polling worker cannot function under request-based CPU throttling, and an
- * always-allocated instance bills for its entire lifetime at a rate that is
- * neither `active` nor `idle`. Pricing a split design with this table
- * understates its cost.
+ * The always-allocated pair exists because the split-out worker service runs
+ * `cpu_idle = false` — a polling worker cannot function under request-based CPU
+ * throttling. Such an instance bills for its entire lifetime at a rate that is
+ * neither `active` nor `idle`: cheaper per second than active, far dearer than
+ * idle, and with no per-request charge at all. That trade is the whole cost
+ * argument for splitting workers out, so it has to be priced, not approximated.
  */
 export interface RateTable {
   /** Cloud Run, per vCPU-second while a request is being served. */
@@ -54,7 +62,15 @@ export interface RateTable {
   cloudRunIdleVcpuSecond: number;
   /** Cloud Run, per GiB-second for an idle min-instance. */
   cloudRunIdleGibSecond: number;
-  /** Cloud Run, per request. */
+  /**
+   * Cloud Run instance-based billing, per vCPU-second for the whole instance
+   * lifetime. Applies to any service running `cpu_idle = false` — in this
+   * arena, the split-out worker.
+   */
+  cloudRunAlwaysAllocatedVcpuSecond: number;
+  /** Cloud Run instance-based billing, per GiB-second for the instance lifetime. */
+  cloudRunAlwaysAllocatedGibSecond: number;
+  /** Cloud Run, per request. Request-based billing only — instance-based has no request charge. */
   cloudRunRequest: number;
   /** Memorystore Redis, per GiB-hour, by tier. */
   redisGibHour: Record<'basic-1gb' | 'standard-1gb', number>;
@@ -70,7 +86,9 @@ export const GCP_RATES: RateTable = {
   cloudRunActiveVcpuSecond: 0.000024,
   cloudRunActiveGibSecond: 0.0000025,
   cloudRunIdleVcpuSecond: 0.0000025,
-  cloudRunIdleGibSecond: 0.0000003125,
+  cloudRunIdleGibSecond: 0.0000025,
+  cloudRunAlwaysAllocatedVcpuSecond: 0.000018,
+  cloudRunAlwaysAllocatedGibSecond: 0.000002,
   cloudRunRequest: 0.0000004,
   redisGibHour: { 'basic-1gb': 0.049, 'standard-1gb': 0.077 },
   dbHour: { micro: 0.0104, small: 0.0416, medium: 0.0832 },

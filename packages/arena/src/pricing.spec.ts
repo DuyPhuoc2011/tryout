@@ -8,6 +8,8 @@ const testRates: RateTable = {
   cloudRunActiveGibSecond: 0.0001,
   cloudRunIdleVcpuSecond: 0.0001,
   cloudRunIdleGibSecond: 0.00001,
+  cloudRunAlwaysAllocatedVcpuSecond: 0.0005,
+  cloudRunAlwaysAllocatedGibSecond: 0.00005,
   cloudRunRequest: 0.000001,
   redisGibHour: { 'basic-1gb': 0.05, 'standard-1gb': 0.1 },
   dbHour: { micro: 0.01, small: 0.04, medium: 0.08 },
@@ -19,6 +21,8 @@ const usage: Usage = {
   cloudRunActiveGibSeconds: 2000,
   cloudRunIdleVcpuSeconds: 3600,
   cloudRunIdleGibSeconds: 3600,
+  cloudRunAlwaysAllocatedVcpuSeconds: 0,
+  cloudRunAlwaysAllocatedGibSeconds: 0,
   requests: 1_000_000,
   cacheEnabled: true,
   cacheTier: 'basic-1gb',
@@ -34,6 +38,48 @@ describe('costFromUsage', () => {
     expect(cost.lineItems.requests).toBeCloseTo(1.0, 10);
     expect(cost.lineItems.cache).toBeCloseTo(0.05, 10);
     expect(cost.lineItems.db).toBeCloseTo(0.04, 10);
+  });
+
+  // The split-out worker tier runs on instance-based billing (cpu_idle = false),
+  // which bills the whole instance lifetime at a rate that is neither active nor
+  // idle. Before this line item existed, a separate_service design was priced as
+  // if its worker were free — understating exactly the configurations the
+  // crossover compares.
+  it('prices always-allocated seconds at the instance-based rate', () => {
+    const withWorker: Usage = {
+      ...usage,
+      cloudRunAlwaysAllocatedVcpuSeconds: 3600,
+      cloudRunAlwaysAllocatedGibSeconds: 7200,
+    };
+
+    const cost = costFromUsage(withWorker, testRates);
+
+    // 3600 * 0.0005 + 7200 * 0.00005 = 1.8 + 0.36 = 2.16
+    expect(cost.lineItems.cloudRunAlwaysAllocated).toBeCloseTo(2.16, 10);
+  });
+
+  it('charges nothing for always-allocated seconds when no service is on instance-based billing', () => {
+    const cost = costFromUsage(usage, testRates);
+    expect(cost.lineItems.cloudRunAlwaysAllocated).toBe(0);
+  });
+
+  it('adds the always-allocated line item to the total', () => {
+    const base = costFromUsage(usage, testRates);
+    const withWorker = costFromUsage(
+      { ...usage, cloudRunAlwaysAllocatedVcpuSeconds: 3600, cloudRunAlwaysAllocatedGibSeconds: 7200 },
+      testRates,
+    );
+
+    expect(withWorker.totalForWindow).toBeCloseTo(base.totalForWindow + 2.16, 10);
+  });
+
+  it('rejects a non-finite always-allocated figure like every other usage field', () => {
+    expect(() =>
+      costFromUsage({ ...usage, cloudRunAlwaysAllocatedVcpuSeconds: Number.NaN }, testRates),
+    ).toThrow(/cloudRunAlwaysAllocatedVcpuSeconds/);
+    expect(() =>
+      costFromUsage({ ...usage, cloudRunAlwaysAllocatedGibSeconds: -1 }, testRates),
+    ).toThrow(/cloudRunAlwaysAllocatedGibSeconds/);
   });
 
   it('totals the line items', () => {
@@ -62,6 +108,8 @@ describe('costFromUsage', () => {
       cloudRunActiveGibSeconds: 450,
       cloudRunIdleVcpuSeconds: 10_800,
       cloudRunIdleGibSeconds: 10_800,
+      cloudRunAlwaysAllocatedVcpuSeconds: 0,
+      cloudRunAlwaysAllocatedGibSeconds: 0,
       requests: 300_000,
       cacheEnabled: true,
       cacheTier: 'standard-1gb',
