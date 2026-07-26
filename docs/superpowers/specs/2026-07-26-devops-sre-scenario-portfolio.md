@@ -198,12 +198,43 @@ process that would also work when the learner does not know the answer.
 | Multi-cloud versions of every lab | Defer | Weakens authenticity and multiplies authoring cost |
 | Multiplayer incident response | Defer | Coordination is useful only after the single-learner loop works |
 
-## 10. Decisions Needed Before Implementation
+## 10. Decisions — Settled 2026-07-26
 
-1. Confirm whether the first product line is incident labs, with A01 remaining the
-   flagship arena, or whether Tryout wants arenas only.
-2. Choose the target session length: approximately 30, 60, or 90 minutes.
-3. Decide whether evaluation is private coaching, pass/fail certification, or both.
-4. Set the environment cost ceiling per attempt and the reset/retry allowance.
-5. Select the first three scenarios; the recommendation is S01, S02, and S03.
+1. **Product line: arenas only.** The incident-lab track (S01–S18) is not being built.
+   Sections 4 and 5 above are retained as analysis, but Tiers 1–3 are shelved and the
+   Wave 1–3 sequence does not apply. A01 is the product, not the flagship alongside a
+   catalog.
+2. **Session length: ~60 minutes.** Long enough for a full submit → measure → iterate
+   loop with room to read the scoreboard and re-submit at least once.
+3. **Evaluation: private coaching.** Score and debrief are shown to the buyer only. No
+   certification, no pass/fail credential, so no rubric-appeal surface to operate.
+4. **Cost: under $1 per attempt, 2 free resets.** The per-environment TTL, concurrency
+   cap, and instance ceilings already enforced by the arena runner are the mechanism.
+
+**Consequence of decision 1.** Arenas-only puts every remaining milestone behind M0, the
+crossover experiment, since M1-B3 onward consume its traffic numbers. It also promotes a
+prerequisite that the incident-lab track would have hidden: an arena environment deploys
+`var.scenario_image`, a workload with a real background-job tier, and no such image
+exists. See section 11.
+
+## 11. Blocking Prerequisite — The Scenario Workload Image
+
+`infra/terraform/modules/arena-env/variables.tf` declares `scenario_image` as "the
+container image of the scenario application under test. Chosen by us per scenario, never
+by the buyer." Nothing builds that image, and no plan schedules it.
+
+It cannot be the marketplace API. That image has no background-job tier at all: the
+BullMQ queues, the worker processes, and the `ioredis` dependency were removed with the
+interview platform, and `apps/api` today exposes six HTTP controllers and nothing else.
+It also carries Stripe and GitHub credentials that a buyer environment must never hold.
+
+This matters because all three crossover mechanisms in the A01 design are job-shaped:
+request-scoped execution cannot host a twenty-minute job, permanently warm workers are
+what a `min_instances` floor bills for, and bin packing only pays off when the worker
+tier is separable. A workload without background jobs cannot produce a crossover, so M0
+would measure a system that structurally cannot answer M0's question.
+
+M0 is therefore blocked on a purpose-built reference workload that honours
+`WORKERS_IN_PROCESS`, enqueues jobs over `REDIS_URL`, and supports a configurable job
+duration distribution including jobs past the Cloud Run request ceiling.
 
