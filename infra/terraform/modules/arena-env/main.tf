@@ -97,6 +97,17 @@ resource "google_cloud_run_v2_service" "api" {
           cpu    = tostring(var.api_cpu)
           memory = var.api_memory
         }
+
+        # Request-based billing, pinned rather than inherited. CPU is throttled
+        # outside request processing and a min-instance idles at the reduced
+        # rate — exactly the model rates.ts prices, with separate active and
+        # idle vCPU-second figures. Leaving this to the provider default would
+        # let a provider upgrade silently change what every score means.
+        #
+        # Consequence the buyer is meant to discover: with workers in-process,
+        # a long job runs on throttled CPU between requests. That is the real
+        # Cloud Run constraint, not a handicap we added.
+        cpu_idle = true
       }
 
       env {
@@ -194,6 +205,22 @@ resource "google_cloud_run_v2_service" "worker" {
           cpu    = tostring(var.api_cpu)
           memory = var.api_memory
         }
+
+        # Instance-based billing — REQUIRED, not a tuning choice.
+        #
+        # This service receives no requests: it polls a queue. Under the
+        # provider default (cpu_idle = true, request-based) Cloud Run throttles
+        # CPU outside request processing, so the poll loop would get almost no
+        # CPU and the split-out worker tier would never drain the queue. The
+        # `separate_service` lever would be unusable and the crossover it is
+        # supposed to produce could never appear.
+        #
+        # Billing consequence, unresolved: an always-allocated instance bills
+        # at the instance-based rate for its whole lifetime, which is neither
+        # of the two figures rates.ts carries. Pricing a `separate_service`
+        # design with today's rate table understates it. Must be closed before
+        # M1-B3 scores a split design — see the note in rates.ts.
+        cpu_idle = false
       }
 
       env {
